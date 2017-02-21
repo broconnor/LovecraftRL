@@ -1,7 +1,8 @@
 import libtcodpy as libtcod
 import math
+import textwrap
 
-# Last change: implemented monster and player death
+# Last change: implemented mouse look
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms
@@ -10,7 +11,11 @@ import math
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
 #       organize into 'gameloop.py', 'functions.py', 'classes.py', etc. files
 #       fix ai pathfinding to not get stuck on corners and to move around blocking objects
-#       clear HP display before updating it so it doesn't look like max hp has an extra zero
+#       implement fleeing monsters (check out Dijkstra maps)
+#       change messages to refer to 'you' instead of 'player'
+#       add turn counter
+
+
 
 #########################
 ###### CONSTANTS ########
@@ -20,9 +25,17 @@ SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
 
+# parameters for GUI
+BAR_WIDTH = 20
+PANEL_HEIGHT = 7
+PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+MSG_X = BAR_WIDTH + 2
+MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
+MSG_HEIGHT = PANEL_HEIGHT - 1
+
 # parameters for map creation
 MAP_WIDTH = 80
-MAP_HEIGHT = 45
+MAP_HEIGHT = 43
 
 # parameters for map gen
 ROOM_MAX_SIZE = 10
@@ -35,20 +48,27 @@ FOV_ALGO = 0 # default FOV algorithm
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
-# colors for map tiles
+# colors for map tiles. later these will be based on current area
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50, 50, 150)
 color_light_ground = libtcod.Color(200, 180, 50)
 
 # Set font
-libtcod.console_set_custom_font('dejavu12x12_gs_tc.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
+libtcod.console_set_custom_font('terminal12x12_gs_ro.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_ASCII_INROW)
 
 # initialize window
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'LovecraftRL', False)
 
+# set FPS to 20
+libtcod.sys_set_fps(LIMIT_FPS)
+
 # create off-screen console to draw on
-con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
+
+# create GUI panel
+panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
 
 #########################
 ####### CLASSES #########
@@ -172,11 +192,11 @@ class Fighter:
 
 		if damage > 0:
 			# make target take some damage
-			print (self.owner.name.capitalize() + ' attacks ' + target.name + 
+			message(self.owner.name.capitalize() + ' attacks ' + target.name + 
 				' for ' + str(damage) + ' hit points.')
 			target.fighter.take_damage(damage)
 		else:
-			print (self.owner.name.capitalize() + ' attacks ' + target.name +
+			message(self.owner.name.capitalize() + ' attacks ' + target.name +
 				'but it has no effect!')
 
 
@@ -200,9 +220,9 @@ class BasicMonster:
 #########################
 def handle_keys():
 	global fov_recompute
+	global key
 
 	# non-movement command keys
-	key = libtcod.console_wait_for_keypress(True)
 	if key.vk == libtcod.KEY_ENTER and key.lalt:
 		# Alt+Enter: toggle fullscreen
 		libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
@@ -360,13 +380,24 @@ def render_all():
 	# then draw player so it shows up over corpses (and other items)
 	player.draw()
 
-	# show the player's stats
-	libtcod.console_set_default_foreground(con, libtcod.white)
-	libtcod.console_print_ex(con, 1, SCREEN_HEIGHT - 2, libtcod.BKGND_NONE,
-		libtcod.LEFT, 'HP: ' + str(player.fighter.hp) + '/' + str(player.fighter.max_hp))
+	# prepare to render GUI panel
+	libtcod.console_set_default_background(panel, libtcod.black)
+	libtcod.console_clear(panel)
 
-	# blit off-screen console to on-screen
-	libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
+	# show the player's stats
+	render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
+		libtcod.light_red, libtcod.darker_red)
+
+	# display names of objects under the mouse
+	libtcod.console_set_default_foreground(panel, libtcod.light_gray)
+	libtcod.console_print_ex(panel, 1, 0, libtcod.BKGND_NONE, libtcod.LEFT,
+		get_names_under_mouse())
+
+	# blit off-screen console to root console
+	libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, 0, 0)
+
+	# blit the contents of "panel" to the root console
+	libtcod.console_blit(panel, 0, 0, SCREEN_WIDTH, PANEL_HEIGHT, 0, 0, PANEL_Y)
 
 
 
@@ -423,6 +454,7 @@ def place_objects(room):
 			objects.append(monster)
 
 
+
 def is_blocked(x, y):
 	# first test if map tile is blocked
 	if map[x][y].blocked:
@@ -463,7 +495,7 @@ def player_move_or_attack(dx, dy):
 def player_death(player):
 	# game over
 	global game_state
-	print 'You died!'
+	message('You die...', libtcod.red)
 	game_state = 'dead'
 
 	# transform player into a corpse
@@ -473,7 +505,7 @@ def player_death(player):
 
 def monster_death(monster):
 	# transform it into a corpse. doesn't block; can't attack or move
-	print monster.name.capitalize() + ' is dead!'
+	message('The ' + monster.name + ' dies!', libtcod.orange)
 	monster.char = '%'
 	monster.color = libtcod.dark_red
 	monster.blocks = False
@@ -481,6 +513,64 @@ def monster_death(monster):
 	monster.ai = None
 	monster.name = 'remains of ' + monster.name
 	monster.send_to_back()
+
+
+
+def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
+	# render display bar for HP, EXP, etc. Calculate bar width first
+	bar_width = int(float(value) / maximum * total_width)
+
+	# render background next
+	libtcod.console_set_default_background(panel, back_color)
+	libtcod.console_rect(panel, x, y, total_width, 1, False, libtcod.BKGND_SCREEN)
+
+	# now render the bar on top
+	libtcod.console_set_default_background(panel, bar_color)
+	if bar_width > 0:
+		libtcod.console_rect(panel, x, y, bar_width, 1, False, libtcod.BKGND_SCREEN)
+
+	# finally, some centered text with stat values
+	libtcod.console_set_default_foreground(panel, libtcod.white)
+	libtcod.console_print_ex(panel, x + total_width / 2, y, libtcod.BKGND_NONE,
+		libtcod.CENTER, name + ': ' + str(value) + '/' + str(maximum))
+
+	# print the game messages, one at a time
+	y = 1
+	for (line, color) in game_msgs:
+		libtcod.console_set_default_foreground(panel, color)
+		libtcod.console_print_ex(panel, MSG_X, y, libtcod.BKGND_NONE, 
+			libtcod.LEFT, line)
+		y += 1
+
+
+
+def message(new_msg, color = libtcod.white):
+	# split the message if necessary, among multiple lines
+	new_msg_lines = textwrap.wrap(new_msg, MSG_WIDTH)
+
+	for line in new_msg_lines:
+		# if the buffer is full, remove the first line to make room for the new one
+		if len(game_msgs) == MSG_HEIGHT:
+			del game_msgs[0]
+		# add the new line as a tuple of text and color
+		game_msgs.append( (line, color))
+
+
+
+def get_names_under_mouse():
+	global mouse
+	# return a string with the names of all objects under the mouse
+
+	# get mouse's current coordinates
+	(x, y) = (mouse.cx, mouse.cy)
+	# create a list with the names of all objects in player's FOV at (x,y)
+	names = [obj.name for obj in objects
+		if obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y)]
+
+	# join the names into a string and return them with first letter capitalized
+	names = ', '.join(names)
+	return names.capitalize()
+
 
 
 #########################
@@ -491,6 +581,9 @@ fighter_component = Fighter(hp = 30, defense = 2, power = 5, death_function = pl
 player = Object(0, 0, '@', 'player', libtcod.white, blocks = True, fighter = fighter_component)
 # add it to the list of objects
 objects = [player]
+
+# create list of game message and their colors
+game_msgs = []
 
 # generate the map
 make_map()
@@ -506,12 +599,22 @@ fov_recompute = True
 game_state = 'playing'
 player_action = None
 
+# test message
+message('Welcome to Hideous Truths!', libtcod.purple)
+
+# get mouse and keyboard for input
+mouse = libtcod.Mouse()
+key = libtcod.Key()
+
 #########################
 ####### MAIN LOOP #######
 #########################
 while not libtcod.console_is_window_closed():
 	libtcod.console_set_default_foreground(con, libtcod.white)
 	
+	libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE,
+		key, mouse)
+
 	render_all()
 	# update on-screen console
 	libtcod.console_flush()
