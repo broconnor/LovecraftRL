@@ -145,6 +145,10 @@ class Object:
 		dy = other.y - self.y
 		return math.sqrt(dx ** 2 + dy ** 2)
 
+	def distance(self, x, y):
+		# return the distance to some coordinates
+		return math.sqrt((x - self.x) ** 2 + (y - self.y) ** 2)
+
 	def send_to_back(self):
 		global objects
 		objects.remove(self)
@@ -802,6 +806,29 @@ def cast_confuse():
 	monster.ai.owner = monster # tell the new AI component who owns it
 	message('The eyes of the ' + monster.name + ' look vacant as it starts to' +
 			' stumble around!', libtcod.light_green)
+
+
+
+def target_tile(max_range = None):
+	# return the position of a tile left-clicked in player's FOV
+	global key, mouse
+	while True:
+		# render the screen. this erases the inventory and shows the names of objects under the mouse
+		libtcod.console_flush()
+		# this absorbs any key presses while targeting. without this, libtcod
+		#  would process any key presses after targeting was done, resulting
+		#  in unexpected behavior
+		libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE, key, mouse)
+		render_all()
+
+		(x, y) = (mouse.cx, mouse.cy)
+
+		if (mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y) and
+			(max_range is None or player_distance(x, y) <= max_range)):
+			return (x, y)
+		if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
+			# cancel if the player right-clicks or presses ESC
+			return (None, None)
 
 
 
