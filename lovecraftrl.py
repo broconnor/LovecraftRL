@@ -58,6 +58,8 @@ LIGHTNING_DAMAGE = 20
 LIGHTNING_RANGE = 5
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 8
+FIREBALL_DAMAGE = 12
+FIREBALL_RADIUS = 3
 
 # colors for map tiles. later these will be based on current area
 color_dark_wall = libtcod.Color(0, 0, 100)
@@ -556,10 +558,14 @@ def place_objects(room):
 				# 70% chance of creating a healing potion
 				item_component = Item(use_function = cast_heal)
 				item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
-			elif dice < 70 + 15:
-				# 15% chance of creating a lightning bolt scroll
+			elif dice < 70 + 10:
+				# 10% chance of creating a lightning bolt scroll
 				item_component = Item(use_function = cast_lightning)
 				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, item = item_component)
+			elif dice < 70 + 10 + 10:
+				# 10% chance of creating a fireball scroll
+				item_component = Item(use_function = cast_fireball)
+				item = Object(x, y, '?', 'scroll of fireball', libtcod.light_yellow, item = item_component)
 			else:
 				# 15% chance of creating a confuse scroll
 				item_component = Item(use_function = cast_confuse)
@@ -806,6 +812,25 @@ def cast_confuse():
 	monster.ai.owner = monster # tell the new AI component who owns it
 	message('The eyes of the ' + monster.name + ' look vacant as it starts to' +
 			' stumble around!', libtcod.light_green)
+
+
+
+def cast_fireball():
+	# ask the player for a target tile to throw a fireball at
+	message('Left-click a target tile for the fireball, or right-click to cancel.',
+			libtcod.light_cyan)
+	(x, y) = target_tile()
+	if x is None:
+		return 'cancelled'
+	message('The fireball explodes, burning everything within ' + 
+			str(FIREBALL_RADIUS) + ' tiles!', libtcod.orange)
+
+	for obj in objects:
+		# damage every fighter in range, including the player
+		if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
+			message('The ' + obj.name + ' gets burned for ' + 
+					str(FIREBALL_DAMAGE) + ' hit points.', libtcod.orange)
+			obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 
 
