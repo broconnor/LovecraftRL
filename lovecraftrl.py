@@ -287,6 +287,14 @@ class Item:
 				# destroy after use, unless cancelled
 				inventory.remove(self.owner)
 
+	def drop(self):
+		# add to the map and remove from the player's inventory
+		objects.append(self.owner)
+		inventory.remove(self.owner)
+		self.owner.x = player.x
+		self.owner.y = player.y
+		message('You dropped a ' + self.owner.name + '.', libtcod.yellow)
+
 
 #########################
 ###### FUNCTIONS ########
@@ -369,11 +377,18 @@ def handle_keys():
 						break
 
 			if key_char == 'i':
-				# show the inventory
+				# show the inventory and select an item to use
 				chosen_item = inventory_menu('Press the key next to an item ' +
-					' use it, or any other to cancel.\n')
+					'to use it, or any other to cancel.\n')
 				if chosen_item is not None:
 					chosen_item.use()
+
+			if key_char == 'd':
+				# show the inventory and select an item to drop
+				chosen_item = inventory_menu('Press the key next to an item ' +
+					'to drop it, or any other to cancel.\n')
+				if chosen_item is not None:
+					chosen_item.drop()
 
 			return 'didnt-take-turn'
 
