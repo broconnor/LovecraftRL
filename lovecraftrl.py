@@ -2,7 +2,7 @@ import libtcodpy as libtcod
 import math
 import textwrap
 
-# Last change: implemented mouse look
+# Last change: Implemented inventory menu and item use
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms
@@ -14,6 +14,7 @@ import textwrap
 #       implement fleeing monsters (check out Dijkstra maps)
 #       change messages to refer to 'you' instead of 'player'
 #       add turn counter
+#       rework item use so enemies can use them as well
 
 
 
@@ -32,6 +33,7 @@ PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 MSG_X = BAR_WIDTH + 2
 MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
 MSG_HEIGHT = PANEL_HEIGHT - 1
+INVENTORY_WIDTH = 50
 
 # parameters for map creation
 MAP_WIDTH = 80
@@ -48,6 +50,9 @@ MAX_ROOM_ITEMS = 2
 FOV_ALGO = 0 # default FOV algorithm
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
+
+# parameters for items
+HEAL_AMOUNT = 4
 
 # colors for map tiles. later these will be based on current area
 color_dark_wall = libtcod.Color(0, 0, 100)
@@ -206,6 +211,12 @@ class Fighter:
 			message(self.owner.name.capitalize() + ' attacks ' + target.name +
 				'but it has no effect!')
 
+	def heal(self, amount):
+		# heal by given amount, without going over max hp
+		self.hp += amount
+		if self.hp > self.max_hp:
+			self.hp = self.max_hp
+
 
 
 class BasicMonster:
@@ -224,7 +235,9 @@ class BasicMonster:
 
 class Item:
 	# an item that can be picked up and used
-	
+	def __init__(self, use_function = None):
+		self.use_function = use_function
+
 	def pick_up(self):
 		# add to player's inventory and remove from the map
 		if len(inventory) >= 26:
@@ -233,8 +246,16 @@ class Item:
 		else:
 			inventory.append(self.owner)
 			objects.remove(self.owner)
-			message('You picked up a ' + self.owner.name + '.', libtcod.green)
+			message('You pick up a ' + self.owner.name + '.', libtcod.green)
 
+	def use(self):
+		# just call the use_function if it's defined
+		if self.use_function is None:
+			message('The ' + self.owner.name + ' cannot be used.')
+		else:
+			if self.use_function() != 'cancelled':
+				# destroy after use, unless cancelled
+				inventory.remove(self.owner)
 
 
 #########################
@@ -316,6 +337,13 @@ def handle_keys():
 					if object.x == player.x and object.y == player.y and object.item:
 						object.item.pick_up()
 						break
+
+			if key_char == 'i':
+				# show the inventory
+				chosen_item = inventory_menu('Press the key next to an item ' +
+					' use it, or any other to cancel.\n')
+				if chosen_item is not None:
+					chosen_item.use()
 
 			return 'didnt-take-turn'
 
@@ -496,7 +524,7 @@ def place_objects(room):
 		# only place it if tile is not blocked
 		if not is_blocked(x, y):
 			# create a healing potion
-			item_component = Item()
+			item_component = Item(use_function = cast_heal)
 			item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
 
 			objects.append(item)
@@ -619,6 +647,75 @@ def get_names_under_mouse():
 	# join the names into a string and return them with first letter capitalized
 	names = ', '.join(names)
 	return names.capitalize()
+
+
+
+def menu(header, options, width):
+	# if there are more options than letters, raise an error
+	if len(options) > 26: raise ValueError('Cannot have a menu with more than 26 options.')
+
+	#calculate total height for the header (after auto-wrap) and one line per option
+	header_height = libtcod.console_get_height_rect(con, 0, 0, width, SCREEN_HEIGHT, header)
+	height = len(options) + header_height
+
+	# create an off-screen console that represents the menu's window
+	window = libtcod.console_new(width, height)
+
+	# print the header, with auto-wrap
+	libtcod.console_set_default_foreground(window, libtcod.white)
+	libtcod.console_print_rect_ex(window, 0, 0, width, height, 
+		libtcod.BKGND_NONE, libtcod.LEFT, header)
+
+	# print all the options
+	y = header_height
+	letter_index = ord('a')
+	for option_text in options:
+		text = '(' + chr(letter_index) + ') ' + option_text
+		libtcod.console_print_ex(window, 0, y, libtcod.BKGND_NONE, libtcod.LEFT, text)
+		y += 1
+		letter_index += 1
+
+	# blit the contents of "window" to the root console
+	x = SCREEN_WIDTH/2 - width/2
+	y = SCREEN_HEIGHT/2 - height/2
+	libtcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
+
+	# present the root console (i.e. the menu) and wait for a keypress
+	libtcod.console_flush()
+	key = libtcod.console_wait_for_keypress(True)
+
+	# convert the ASCII code to an index; if it corresponds to an option, return it
+	index = key.c - ord('a')
+	if index >= 0 and index < len(options):
+		return index
+	return None
+
+
+
+def inventory_menu(header):
+	# show a menu with each inventory item as an option
+	if len(inventory) == 0:
+		options = ['Inventory is empty.']
+	else:
+		options = [item.name for item in inventory]
+
+	index = menu(header, options, INVENTORY_WIDTH)
+
+	# if an item was chosen, return it
+	if index is None or len(inventory) == 0:
+		return None
+	return inventory[index].item
+
+
+
+def cast_heal():
+	# heal the player
+	if player.fighter.hp == player.fighter.max_hp:
+		message('You are already at full health.', libtcod.red)
+		return 'cancelled'
+
+	message('Your wounds start to feel better!', libtcod.light_violet)
+	player.fighter.heal(HEAL_AMOUNT)
 
 
 
