@@ -799,12 +799,11 @@ def cast_lightning():
 
 
 def cast_confuse():
-	# find closest enemy in range and confuse it
-	monster = closest_monster(CONFUSE_RANGE)
+	# ask player for a target to confuse
+	message('Left-click an enemy to confuse it, or right-click to cancel.', libtcod.light_cyan)
+	monster = target_monster(CONFUSE_RANGE)
 	if monster is None:
-		# no enemy found within range
-		message('No enemy is close enough to confuse.', libtcod.red)
-		return 'cancelled'
+		return 'cancelled' 
 
 	# temporarily replace the monster's AI with a confused one
 	old_ai = monster.ai
@@ -849,11 +848,26 @@ def target_tile(max_range = None):
 		(x, y) = (mouse.cx, mouse.cy)
 
 		if (mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y) and
-			(max_range is None or player_distance(x, y) <= max_range)):
+			(max_range is None or player.distance(x, y) <= max_range)):
 			return (x, y)
 		if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
 			# cancel if the player right-clicks or presses ESC
 			return (None, None)
+
+
+
+def target_monster(max_range = None):
+	# returns a clicked monster inside FOV up to a range, or None if right-clicked
+	while True:
+		(x, y) = target_tile(max_range)
+		if x is None:
+			# player cancelled
+			return None
+
+		# return the first clicked monster, otherwise continue looping
+		for obj in objects:
+			if obj.x == x and obj.y == y and obj.fighter and obj != player:
+				return obj
 
 
 
