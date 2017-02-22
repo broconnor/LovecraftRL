@@ -56,6 +56,8 @@ TORCH_RADIUS = 10
 HEAL_AMOUNT = 4
 LIGHTNING_DAMAGE = 20
 LIGHTNING_RANGE = 5
+CONFUSE_NUM_TURNS = 10
+CONFUSE_RANGE = 8
 
 # colors for map tiles. later these will be based on current area
 color_dark_wall = libtcod.Color(0, 0, 100)
@@ -233,6 +235,25 @@ class BasicMonster:
 				monster.move_towards(player.x, player.y)
 			elif player.fighter.hp > 0:
 				monster.fighter.attack(player)
+
+
+
+class ConfusedMonster:
+	# AI for a temporarily confused monster (reverts to previous AI after a while)
+	def __init__(self, old_ai, num_turns = CONFUSE_NUM_TURNS):
+		self.old_ai = old_ai
+		self.num_turns = num_turns
+
+	def take_turn(self):
+		if self.num_turns > 0:
+			# if still confused, move in a random direction and decrease num_turns
+			self.owner.move(libtcod.random_get_int(0, -1, 1), 
+							libtcod.random_get_int(0, -1, 1))
+			self.num_turns -= 1
+		else:
+			# restore the previous AI and delete this one
+			self.owner.ai = self.old_ai
+			message('The ' + self.owner.name + ' is no longer confused.')
 
 
 
@@ -531,10 +552,14 @@ def place_objects(room):
 				# 70% chance of creating a healing potion
 				item_component = Item(use_function = cast_heal)
 				item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
-			else:
-				# 30% chance of creating a lightning bolt scroll
+			elif dice < 70 + 15:
+				# 15% chance of creating a lightning bolt scroll
 				item_component = Item(use_function = cast_lightning)
 				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, item = item_component)
+			else:
+				# 15% chance of creating a confuse scroll
+				item_component = Item(use_function = cast_confuse)
+				item = Object(x, y, '?', 'scroll of confusion', libtcod.light_yellow, item = item_component)
 			
 			objects.append(item)
 			item.send_to_back() # items appear below other objects
@@ -760,6 +785,23 @@ def cast_lightning():
 	message('A lightning bolt strikes the ' + monster.name + ' with a loud thunder! ' +
 		'The damage is ' + str(LIGHTNING_DAMAGE) + ' hit points.', libtcod.light_blue)
 	monster.fighter.take_damage(LIGHTNING_DAMAGE)
+
+
+
+def cast_confuse():
+	# find closest enemy in range and confuse it
+	monster = closest_monster(CONFUSE_RANGE)
+	if monster is None:
+		# no enemy found within range
+		message('No enemy is close enough to confuse.', libtcod.red)
+		return 'cancelled'
+
+	# temporarily replace the monster's AI with a confused one
+	old_ai = monster.ai
+	monster.ai = ConfusedMonster(old_ai)
+	monster.ai.owner = monster # tell the new AI component who owns it
+	message('The eyes of the ' + monster.name + ' look vacant as it starts to' +
+			' stumble around!', libtcod.light_green)
 
 
 
