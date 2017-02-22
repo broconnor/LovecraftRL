@@ -5,7 +5,7 @@ import textwrap
 # Last change: Implemented inventory menu and item use
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
-#       add more variation to types of rooms
+#       add more variation to types of rooms (check out Crawl's vaults)
 #       figure out background/floor/wall colors
 #       modify FOV to support light sources other than the player
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
@@ -15,6 +15,7 @@ import textwrap
 #       change messages to refer to 'you' instead of 'player'
 #       add turn counter
 #       rework item use so enemies can use them as well
+#       add menu for choosing which item to pick up if many are on one tile
 
 
 
@@ -53,6 +54,8 @@ TORCH_RADIUS = 10
 
 # parameters for items
 HEAL_AMOUNT = 4
+LIGHTNING_DAMAGE = 20
+LIGHTNING_RANGE = 5
 
 # colors for map tiles. later these will be based on current area
 color_dark_wall = libtcod.Color(0, 0, 100)
@@ -523,10 +526,16 @@ def place_objects(room):
 
 		# only place it if tile is not blocked
 		if not is_blocked(x, y):
-			# create a healing potion
-			item_component = Item(use_function = cast_heal)
-			item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
-
+			dice = libtcod.random_get_int(0, 0, 100)
+			if dice < 70:
+				# 70% chance of creating a healing potion
+				item_component = Item(use_function = cast_heal)
+				item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
+			else:
+				# 30% chance of creating a lightning bolt scroll
+				item_component = Item(use_function = cast_lightning)
+				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, item = item_component)
+			
 			objects.append(item)
 			item.send_to_back() # items appear below other objects
 
@@ -650,6 +659,26 @@ def get_names_under_mouse():
 
 
 
+def closest_monster(max_range):
+	# find closest enemy, up to a maximum range, and in the player's FOV
+	closest_enemy = None
+	closest_dist = max_range + 1 # start slightly outside of max range
+
+	for object in objects:
+		if (object.fighter and not object == player and 
+			libtcod.map_is_in_fov(fov_map, object.x, object.y)):
+			# calculate distance between object and player
+			dist = player.distance_to(object)
+			if dist < closest_dist:
+				# it's closer, so remember it
+				closest_enemy = object
+				closest_dist = dist
+
+	return closest_enemy
+
+
+
+
 def menu(header, options, width):
 	# if there are more options than letters, raise an error
 	if len(options) > 26: raise ValueError('Cannot have a menu with more than 26 options.')
@@ -716,6 +745,21 @@ def cast_heal():
 
 	message('Your wounds start to feel better!', libtcod.light_violet)
 	player.fighter.heal(HEAL_AMOUNT)
+
+
+
+def cast_lightning():
+	# find closest enemy (inside a max range) and damage it
+	monster = closest_monster(LIGHTNING_RANGE)
+	if monster is None:
+		# no enemy found within maximum range
+		message('No enemy is close enough to strike.', libtcod.red)
+		return 'cancelled'
+
+	# zap it 
+	message('A lightning bolt strikes the ' + monster.name + ' with a loud thunder! ' +
+		'The damage is ' + str(LIGHTNING_DAMAGE) + ' hit points.', libtcod.light_blue)
+	monster.fighter.take_damage(LIGHTNING_DAMAGE)
 
 
 
