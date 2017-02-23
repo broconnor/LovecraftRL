@@ -21,7 +21,7 @@ import textwrap
 
 
 #########################
-###### CONSTANTS ########
+####### CONSTANTS #######
 #########################
 # parameters for console window
 SCREEN_WIDTH = 80
@@ -71,7 +71,7 @@ color_light_ground = libtcod.Color(200, 180, 50)
 
 
 #########################
-####### CLASSES #########
+######## CLASSES ########
 #########################
 class Object:
 	# generic object class for players, monsters, items, stairs, etc.
@@ -284,7 +284,7 @@ class Item:
 
 
 #########################
-###### FUNCTIONS ########
+####### FUNCTIONS #######
 #########################
 def new_game():
 	global player, inventory, game_msgs, game_state
@@ -352,6 +352,26 @@ def play_game():
 			for object in objects:
 				if object.ai:
 					object.ai.take_turn()
+
+
+
+def main_menu():
+	img = libtcod.image_load('placeholder_menu_background.png')
+
+	while not libtcod.console_is_window_closed():
+		# show the background image, at twice the regular console resolution
+		libtcod.image_blit_2x(img, 0, 0, 0)
+
+		# show options and wait for the player's choice
+		choice = menu('', ['Play a new game', 'Load a saved game', 'Quit'], 24)
+
+		if choice == 0:
+			# new_game
+			new_game()
+			play_game()
+		elif choice == 2:
+			# quit
+			break
 
 
 
@@ -945,9 +965,9 @@ def target_monster(max_range = None):
 
 
 
-##############
-# Running the game #
-###########
+#########################
+##### Initialization ####
+#########################
 
 # Set font
 libtcod.console_set_custom_font('terminal12x12_gs_ro.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_ASCII_INROW)
@@ -966,8 +986,7 @@ panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
 libtcod.console_set_default_foreground(con, libtcod.white)
 
-new_game()
-play_game()
+main_menu()
 
 
 
