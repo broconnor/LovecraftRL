@@ -362,6 +362,13 @@ def main_menu():
 		# show the background image, at twice the regular console resolution
 		libtcod.image_blit_2x(img, 0, 0, 0)
 
+		# show the game's title, and some credits
+		libtcod.console_set_default_foreground(0, libtcod.violet)
+		libtcod.console_print_ex(0, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 4, 
+			libtcod.BKGND_NONE, libtcod.CENTER, 'HIDEOUS TRUTHS')
+		libtcod.console_print_ex(0, SCREEN_WIDTH/2, SCREEN_HEIGHT - 2, 
+			libtcod.BKGND_NONE, libtcod.CENTER, "By Brian O'Connor")
+
 		# show options and wait for the player's choice
 		choice = menu('', ['Play a new game', 'Load a saved game', 'Quit'], 24)
 
@@ -984,8 +991,7 @@ con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 # create GUI panel
 panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
-libtcod.console_set_default_foreground(con, libtcod.white)
-
+# start the game by loading the main menu
 main_menu()
 
 
