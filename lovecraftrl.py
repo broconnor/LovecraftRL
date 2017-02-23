@@ -2,7 +2,7 @@ import libtcodpy as libtcod
 import math
 import textwrap
 
-# Last change: Implemented inventory menu and item use
+# Last change: Implemented ability to drop items from inventory
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -16,6 +16,7 @@ import textwrap
 #       add turn counter
 #       rework item use so enemies can use them as well
 #       add menu for choosing which item to pick up if many are on one tile
+#       rework items to be theme-appropriate
 
 
 
@@ -67,20 +68,6 @@ color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50, 50, 150)
 color_light_ground = libtcod.Color(200, 180, 50)
 
-# Set font
-libtcod.console_set_custom_font('terminal12x12_gs_ro.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_ASCII_INROW)
-
-# initialize window
-libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'LovecraftRL', False)
-
-# set FPS to 20
-libtcod.sys_set_fps(LIMIT_FPS)
-
-# create off-screen console to draw on
-con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
-
-# create GUI panel
-panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
 
 #########################
@@ -299,6 +286,75 @@ class Item:
 #########################
 ###### FUNCTIONS ########
 #########################
+def new_game():
+	global player, inventory, game_msgs, game_state
+
+	# create object representing the player
+	fighter_component = Fighter(hp = 30, defense = 2, power = 5, death_function = player_death)
+	player = Object(0, 0, '@', 'player', libtcod.white, blocks = True, fighter = fighter_component)
+
+	# generate the map (but don't draw to screen yet) and initialize fov
+	make_map()
+	initialize_fov()
+
+	game_state = 'playing'
+	inventory = []
+
+	# create list of game message and their colors
+	game_msgs = []
+
+	# test welcome message
+	message('Welcome to Hideous Truths!', libtcod.purple)
+
+
+
+def initialize_fov():
+	global fov_recompute, fov_map
+	fov_recompute = True
+
+	# create FOV map according to generated map
+	fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+	for y in range(MAP_HEIGHT):
+		for x in range(MAP_WIDTH):
+			libtcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+
+
+def play_game():
+	global key, mouse
+
+	player_action = None
+
+	# get mouse and keyboard for input
+	mouse = libtcod.Mouse()
+	key = libtcod.Key()
+
+	while not libtcod.console_is_window_closed():
+		# render the screen
+		libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE,key, mouse)
+		render_all()
+		
+		# update on-screen console
+		libtcod.console_flush()
+
+		# clear all objects (to avoid objects showing up in all of their previous
+		#  positions once they've moved)
+		for object in objects:
+			object.clear()
+
+		# handle keys and exit game if needed
+		player_action = handle_keys()
+		if player_action == 'exit':
+			break
+
+		# let monsters take their turn
+		if game_state == 'playing' and player_action != 'didnt-take-turn':
+			for object in objects:
+				if object.ai:
+					object.ai.take_turn()
+
+
+
 def handle_keys():
 	global fov_recompute
 	global key
@@ -395,7 +451,10 @@ def handle_keys():
 
 
 def make_map():
-	global map
+	global map, objects
+
+	# create list of objects with just the player
+	objects = [player]
 
 	# fill map with "unblocked" tiles
 	map = [[ Tile(True) 
@@ -886,66 +945,29 @@ def target_monster(max_range = None):
 
 
 
-#########################
-######### BODY ##########
-#########################
-# create object representing the player
-fighter_component = Fighter(hp = 30, defense = 2, power = 5, death_function = player_death)
-player = Object(0, 0, '@', 'player', libtcod.white, blocks = True, fighter = fighter_component)
-# add it to the list of objects
-objects = [player]
-# create inventory
-inventory = []
+##############
+# Running the game #
+###########
 
-# create list of game message and their colors
-game_msgs = []
+# Set font
+libtcod.console_set_custom_font('terminal12x12_gs_ro.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_ASCII_INROW)
 
-# generate the map
-make_map()
+# initialize window
+libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'LovecraftRL', False)
 
-# variables necessary for determining FOV
-fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
-for y in range(MAP_HEIGHT):
-	for x in range(MAP_WIDTH):
-		libtcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
-fov_recompute = True
+# set FPS to 20
+libtcod.sys_set_fps(LIMIT_FPS)
 
-# variables for game logic
-game_state = 'playing'
-player_action = None
+# create off-screen console to draw on
+con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 
-# test message
-message('Welcome to Hideous Truths!', libtcod.purple)
+# create GUI panel
+panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
-# get mouse and keyboard for input
-mouse = libtcod.Mouse()
-key = libtcod.Key()
+libtcod.console_set_default_foreground(con, libtcod.white)
 
-#########################
-####### MAIN LOOP #######
-#########################
-while not libtcod.console_is_window_closed():
-	libtcod.console_set_default_foreground(con, libtcod.white)
-	
-	libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS | libtcod.EVENT_MOUSE,
-		key, mouse)
+new_game()
+play_game()
 
-	render_all()
-	# update on-screen console
-	libtcod.console_flush()
-
-	# clear all objects (to avoid objects showing up in all of their previous
-	#  positions once they've moved)
-	for object in objects:
-		object.clear()
-
-	player_action = handle_keys()
-	if player_action == 'exit':
-		break
-
-	if game_state == 'playing' and player_action != 'didnt-take-turn':
-		for object in objects:
-			if object.ai:
-				object.ai.take_turn()
 
 
