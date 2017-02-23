@@ -312,6 +312,9 @@ def initialize_fov():
 	global fov_recompute, fov_map
 	fov_recompute = True
 
+	# make sure unexplored areas start black
+	libtcod.console_clear(con)
+
 	# create FOV map according to generated map
 	fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
 	for y in range(MAP_HEIGHT):
@@ -725,6 +728,7 @@ def player_death(player):
 	player.color = libtcod.dark_red
 
 
+
 def monster_death(monster):
 	# transform it into a corpse. doesn't block; can't attack or move
 	message('The ' + monster.name + ' dies!', libtcod.orange)
@@ -820,7 +824,10 @@ def menu(header, options, width):
 	if len(options) > 26: raise ValueError('Cannot have a menu with more than 26 options.')
 
 	#calculate total height for the header (after auto-wrap) and one line per option
-	header_height = libtcod.console_get_height_rect(con, 0, 0, width, SCREEN_HEIGHT, header)
+	if header == '':
+		header_height = 0
+	else:
+		header_height = libtcod.console_get_height_rect(con, 0, 0, width, SCREEN_HEIGHT, header)
 	height = len(options) + header_height
 
 	# create an off-screen console that represents the menu's window
@@ -848,6 +855,10 @@ def menu(header, options, width):
 	# present the root console (i.e. the menu) and wait for a keypress
 	libtcod.console_flush()
 	key = libtcod.console_wait_for_keypress(True)
+
+	if key.vk == libtcod.KEY_ENTER and key.lalt:
+		# Alt+Enter: toggle fullscreen
+		libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
 
 	# convert the ASCII code to an index; if it corresponds to an option, return it
 	index = key.c - ord('a')
