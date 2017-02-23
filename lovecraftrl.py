@@ -656,6 +656,7 @@ def render_all():
 		libtcod.light_red, libtcod.darker_red)
 
 	# show dungeon level
+	libtcod.console_set_default_foreground(panel, libtcod.white)
 	libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT,
 		'Dungeon level: ' + str(dungeon_level))
 
