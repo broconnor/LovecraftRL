@@ -738,7 +738,8 @@ def place_objects(room):
 
 
 		if not is_blocked(x, y):
-			if libtcod.random_get_int(0, 0, 100) < 80:
+			choice = random_choice(monster_chances)
+			if choice == 'orc':
 				# 80% chance of creating an orc
 				fighter_component = Fighter(hp = 10, defense = 0, power = 3, xp = 35, death_function = monster_death)
 				ai_component = BasicMonster()
@@ -763,18 +764,18 @@ def place_objects(room):
 
 		# only place it if tile is not blocked
 		if not is_blocked(x, y):
-			dice = libtcod.random_get_int(0, 0, 100)
-			if dice < 70:
+			choice = random_choice(item_chances)
+			if choice == 'heal':
 				# 70% chance of creating a healing potion
 				item_component = Item(use_function = cast_heal)
 				item = Object(x, y, '!', 'healing potion', libtcod.violet, 
 							  item = item_component, always_visible = True)
-			elif dice < 70 + 10:
+			elif choice == 'lightning':
 				# 10% chance of creating a lightning bolt scroll
 				item_component = Item(use_function = cast_lightning)
 				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, 
 							  item = item_component, always_visible = True)
-			elif dice < 70 + 10 + 10:
+			elif choice == 'fireball':
 				# 10% chance of creating a fireball scroll
 				item_component = Item(use_function = cast_fireball)
 				item = Object(x, y, '?', 'scroll of fireball', libtcod.light_yellow, 
@@ -1131,9 +1132,37 @@ def check_level_up():
 
 
 
+def random_choice_index(chances):
+	# choose on option from list of chances, returning its index
+	dice = libtcod.random_get_int(0, 1, sum(chances))
+
+	# go through all chances, keeping the sum so far
+	running_sum = 0
+	choice = 0
+	for w in chances:
+		running_sum += w
+		# see if the dice landed in the part that corresponds to this choice
+		if dice <= running_sum:
+			return choice
+		choice += 1
+
+
+
+def random_choice(chances_dict):
+	# choose one option from dictionary of chances, returning its key
+	chances = chances_dict.values()
+	strings = chances_dict.keys()
+
+	return strings[random_choice_index(chances)]
+
+
+
 #########################
 ##### INITIALIZATION ####
 #########################
+
+monster_chances = {'orc': 80, 'troll': 20}
+item_chances = {'heal': 70, 'lightning': 10, 'fireball': 10, 'confuse': 10}
 
 # Set font
 libtcod.console_set_custom_font('terminal12x12_gs_ro.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_ASCII_INROW)
