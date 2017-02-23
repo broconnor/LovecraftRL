@@ -3,7 +3,7 @@ import math
 import textwrap
 import shelve
 
-# Last change: Added experience points and leveling up
+# Last change: Reworked random monster/item selection
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
