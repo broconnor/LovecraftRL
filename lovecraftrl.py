@@ -1,8 +1,9 @@
 import libtcodpy as libtcod
 import math
 import textwrap
+import shelve
 
-# Last change: Implemented ability to drop items from inventory
+# Last change: Implemented saving and loading games
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -17,6 +18,9 @@ import textwrap
 #       rework item use so enemies can use them as well
 #       add menu for choosing which item to pick up if many are on one tile
 #       rework items to be theme-appropriate
+#       add mouse support to menus (low priority)
+#       organize inventory by item type
+#       add support for multiple saves
 
 
 
@@ -348,6 +352,7 @@ def play_game():
 		# handle keys and exit game if needed
 		player_action = handle_keys()
 		if player_action == 'exit':
+			save_game()
 			break
 
 		# let monsters take their turn
@@ -379,9 +384,49 @@ def main_menu():
 			# new_game
 			new_game()
 			play_game()
+		elif choice == 1:
+			# load last game
+			try:
+				load_game()
+			except:
+				msgbox('\n No saved game to load.\n', 24)
+				continue
+			play_game()
 		elif choice == 2:
 			# quit
 			break
+
+
+
+def save_game():
+	# open a new empty shelve (possibily overwriting an old one) to write the game data
+	save = shelve.open('savegame', 'n')
+	# save each game state variable. don't save objects if they're also in a saved list
+	save['map'] = map
+	save['objects'] = objects
+	# this avoids the problem mentioned above
+	save['player_index'] = objects.index(player)
+	save['inventory'] = inventory
+	save['game_msgs'] = game_msgs
+	save['game_state'] = game_state
+	save.close()
+
+
+
+def load_game():
+	# open the previously saved shelve and load the game data
+	global map, objects, player, inventory, game_msgs, game_state
+
+	save = shelve.open('savegame', 'r')
+	map = save['map']
+	objects = save['objects']
+	player = objects[save['player_index']]
+	inventory = save['inventory']
+	game_msgs = save['game_msgs']
+	game_state = save['game_state']
+	save.close()
+
+	initialize_fov()
 
 
 
@@ -881,6 +926,11 @@ def inventory_menu(header):
 	if index is None or len(inventory) == 0:
 		return None
 	return inventory[index].item
+
+
+
+def msgbox(text, width = 50):
+	menu(text, [], width)
 
 
 
