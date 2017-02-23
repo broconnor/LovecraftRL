@@ -3,7 +3,7 @@ import math
 import textwrap
 import shelve
 
-# Last change: Implemented saving and loading games
+# Last change: Added multiple dungeon levels
 
 # TODO: make '.' represent floors, '#' represent walls (play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -21,6 +21,7 @@ import shelve
 #       add mouse support to menus (low priority)
 #       organize inventory by item type
 #       add support for multiple saves
+#       figure out how to get '>' and '<' keys working for stairs
 
 
 
@@ -81,13 +82,14 @@ class Object:
 	# generic object class for players, monsters, items, stairs, etc.
 	# always represented by character on screen
 	def __init__(self, x, y, char, name, color, blocks = False, 
-				fighter = None, ai = None, item = None):
+				always_visible = False, fighter = None, ai = None, item = None):
 		self.name = name
 		self.blocks = blocks
 		self.x = x
 		self.y = y
 		self.char = char
 		self.color = color
+		self.always_visible = always_visible
 		
 		self.fighter = fighter
 		if self.fighter:
@@ -112,7 +114,8 @@ class Object:
 
 	def draw(self):
 		# set color and then draw the character that represents this object at its position
-		if libtcod.map_is_in_fov(fov_map, self.x, self.y):
+		if (libtcod.map_is_in_fov(fov_map, self.x, self.y) or
+			(self.always_visible and map[self.x][self.y].explored)):
 			libtcod.console_set_default_foreground(con, self.color)
 			libtcod.console_put_char(con, self.x, self.y, self.char, libtcod.BKGND_NONE)
 
@@ -291,13 +294,14 @@ class Item:
 ####### FUNCTIONS #######
 #########################
 def new_game():
-	global player, inventory, game_msgs, game_state
+	global player, inventory, game_msgs, game_state, dungeon_level
 
 	# create object representing the player
 	fighter_component = Fighter(hp = 30, defense = 2, power = 5, death_function = player_death)
 	player = Object(0, 0, '@', 'player', libtcod.white, blocks = True, fighter = fighter_component)
 
 	# generate the map (but don't draw to screen yet) and initialize fov
+	dungeon_level = 1
 	make_map()
 	initialize_fov()
 
@@ -406,24 +410,28 @@ def save_game():
 	save['objects'] = objects
 	# this avoids the problem mentioned above
 	save['player_index'] = objects.index(player)
+	save['stairs_index'] = objects.index(stairs)
 	save['inventory'] = inventory
 	save['game_msgs'] = game_msgs
 	save['game_state'] = game_state
+	save['dungeon_level'] = dungeon_level
 	save.close()
 
 
 
 def load_game():
 	# open the previously saved shelve and load the game data
-	global map, objects, player, inventory, game_msgs, game_state
+	global map, objects, player, inventory, game_msgs, game_state, stairs, dungeon_level
 
 	save = shelve.open('savegame', 'r')
 	map = save['map']
 	objects = save['objects']
 	player = objects[save['player_index']]
+	stairs = objects[save['stairs_index']]
 	inventory = save['inventory']
 	game_msgs = save['game_msgs']
 	game_state = save['game_state']
+	dungeon_level = save['dungeon_level']
 	save.close()
 
 	initialize_fov()
@@ -521,12 +529,17 @@ def handle_keys():
 				if chosen_item is not None:
 					chosen_item.drop()
 
+			if key_char == '.':
+				# go down stairs, if player is on them
+				if stairs.x == player.x and stairs.y == player.y:
+					next_level()
+
 			return 'didnt-take-turn'
 
 
 
 def make_map():
-	global map, objects
+	global map, objects, stairs
 
 	# create list of objects with just the player
 	objects = [player]
@@ -583,6 +596,21 @@ def make_map():
 			rooms.append(new_room)
 			num_rooms += 1
 
+	# create stairs at the center of the last room
+	stairs = Object(new_x, new_y, '>', 'stairs', libtcod.white, always_visible = True)
+	objects.append(stairs)
+	stairs.send_to_back()
+
+
+
+def next_level():
+	global dungeon_level
+	# advance to the next level
+	message('You descend deeper into the heart of the dungeon...', libtcod.red)
+	dungeon_level += 1
+	make_map()
+	initialize_fov()
+
 
 
 def render_all():
@@ -626,6 +654,10 @@ def render_all():
 	# show the player's stats
 	render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
 		libtcod.light_red, libtcod.darker_red)
+
+	# show dungeon level
+	libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT,
+		'Dungeon level: ' + str(dungeon_level))
 
 	# display names of objects under the mouse
 	libtcod.console_set_default_foreground(panel, libtcod.light_gray)
@@ -706,19 +738,23 @@ def place_objects(room):
 			if dice < 70:
 				# 70% chance of creating a healing potion
 				item_component = Item(use_function = cast_heal)
-				item = Object(x, y, '!', 'healing potion', libtcod.violet, item = item_component)
+				item = Object(x, y, '!', 'healing potion', libtcod.violet, 
+							  item = item_component, always_visible = True)
 			elif dice < 70 + 10:
 				# 10% chance of creating a lightning bolt scroll
 				item_component = Item(use_function = cast_lightning)
-				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, item = item_component)
+				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, 
+							  item = item_component, always_visible = True)
 			elif dice < 70 + 10 + 10:
 				# 10% chance of creating a fireball scroll
 				item_component = Item(use_function = cast_fireball)
-				item = Object(x, y, '?', 'scroll of fireball', libtcod.light_yellow, item = item_component)
+				item = Object(x, y, '?', 'scroll of fireball', libtcod.light_yellow, 
+							  item = item_component, always_visible = True)
 			else:
 				# 15% chance of creating a confuse scroll
 				item_component = Item(use_function = cast_confuse)
-				item = Object(x, y, '?', 'scroll of confusion', libtcod.light_yellow, item = item_component)
+				item = Object(x, y, '?', 'scroll of confusion', libtcod.light_yellow, 
+							  item = item_component, always_visible = True)
 			
 			objects.append(item)
 			item.send_to_back() # items appear below other objects
@@ -1034,7 +1070,7 @@ def target_monster(max_range = None):
 
 
 #########################
-##### Initialization ####
+##### INITIALIZATION ####
 #########################
 
 # Set font
