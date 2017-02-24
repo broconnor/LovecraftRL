@@ -25,6 +25,8 @@ import shelve
 #       organize inventory by item type
 #       add support for multiple saves
 #       figure out how to get '>' and '<' keys working for stairs
+#		rework item randomization
+#		adjust messages to have better grammar
 
 
 
@@ -290,7 +292,12 @@ class Item:
 		else:
 			inventory.append(self.owner)
 			objects.remove(self.owner)
-			message('You pick up a ' + self.owner.name + '.', libtcod.green)
+			message('You pick up a ' + self.owner.name + '.',
+					libtcod.green)
+			# special case: equip something if slot is open
+			equipment = self.owner.equipment
+			if equipment and get_equipped_in_slot(equipment.slot) is None:
+				equipment.equip()
 
 	def use(self):
 		# special case: if object is Equipment, 'use' is (un)equip
@@ -311,6 +318,9 @@ class Item:
 		inventory.remove(self.owner)
 		self.owner.x = player.x
 		self.owner.y = player.y
+		# special case: remove item, if it's equipment
+		if self.owner.equipment:
+			self.owner.equipment.unequip()
 		message('You dropped a ' + self.owner.name + '.', libtcod.yellow)
 
 
@@ -322,20 +332,25 @@ class Equipment:
 		self.is_equipped = False
 	
 	def toggle_equip(self):
-		# toggle equip/dequip status
+		# toggle equip/unequip status
 		if self.is_equipped:
 			self.unequip()
 		else:
 			self.equip()
 	
 	def equip(self):
+		# if the slot is already being used, unequip whatever is there
+		old_equipment = get_equipped_in_slot(self.slot)
+		if old_equipment is not None:
+			old_equipment.unequip()
+
 		# equip an object and show a message about it
 		self.is_equipped = True
 		message('Equipped ' + self.owner.name + ' on ' + self.slot + '.',
 				libtcod.light_green)
 	
 	def unequip(self):
-		# dequip an object and show a message about it
+		# unequip an object and show a message about it
 		if not self.is_equipped: return
 		self.is_equipped = False
 		message('Unequipped ' + self.owner.name + ' from ' + self.slot +
@@ -1074,7 +1089,13 @@ def inventory_menu(header):
 	if len(inventory) == 0:
 		options = ['Inventory is empty.']
 	else:
-		options = [item.name for item in inventory]
+		options = []
+		for item in inventory:
+			text = item.name
+			# show additional information if item is equipped
+			if item.equipment and item.equipment.is_equipped:
+				text = text + ' (on ' + item.equipment.slot + ')'
+			options.append(text)
 
 	index = menu(header, options, INVENTORY_WIDTH)
 
@@ -1253,6 +1274,16 @@ def from_dungeon_level(table):
 		if dungeon_level >= level:
 			return value
 	return 0
+
+
+
+def get_equipped_in_slot(slot):
+	# returns the equipment in a slot, or None if it's empty
+	for obj in inventory:
+		if (obj.equipment and obj.equipment.slot == slot and
+			obj.equipment.is_equipped):
+			return obj.equipment
+	return None
 
 
 
