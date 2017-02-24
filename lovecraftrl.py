@@ -205,10 +205,10 @@ class Rect:
 class Fighter:
 	# combat-related properties and methods (for monsters, players, NPCs, etc.)
 	def __init__(self, hp, defense, power, xp, death_function = None):
-		self.max_hp = hp
+		self.base_max_hp = hp
 		self.hp = hp
-		self.defense = defense
-		self.power = power
+		self.base_defense = defense
+		self.base_power = power
 		self.xp = xp
 		self.death_function = death_function
 
@@ -243,6 +243,24 @@ class Fighter:
 		self.hp += amount
 		if self.hp > self.max_hp:
 			self.hp = self.max_hp
+
+	@property
+	def power(self):
+		bonus = sum(equipment.power_bonus for equipment in 
+					get_all_equipped(self.owner))
+		return self.base_power + bonus
+	
+	@property
+	def defense(self):
+		bonus = sum(equipment.defense_bonus for equipment in
+					get_all_equipped(self.owner))	
+		return self.base_defense + bonus
+	
+	@property
+	def max_hp(self):
+		bonus = sum(equipment.max_hp_bonus for equipment in
+					get_all_equipped(self.owner))
+		return self.base_max_hp + bonus
 
 
 
@@ -327,8 +345,12 @@ class Item:
 
 class Equipment:
 	# an object that can be equipped, yielding bonuses.
-	def __init__(self, slot):
+	def __init__(self, slot, power_bonus = 0, defense_bonus = 0,
+				 max_hp_bonus = 0):
 		self.slot = slot
+		self.power_bonus = power_bonus
+		self.defense_bonus = defense_bonus
+		self.max_hp_bonus = max_hp_bonus
 		self.is_equipped = False
 	
 	def toggle_equip(self):
@@ -365,7 +387,7 @@ def new_game():
 	global player, inventory, game_msgs, game_state, dungeon_level
 
 	# create object representing the player
-	fighter_component = Fighter(hp = 100 , defense = 1, power = 4,
+	fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
 			  				    xp = 0,
 				   			    death_function = player_death)
 	player = Object(0, 0, '@', 'player', libtcod.white, blocks = True,
@@ -384,6 +406,14 @@ def new_game():
 
 	# create list of game message and their colors
 	game_msgs = []
+
+	# initial equipment: a dagger
+	equipment_component = Equipment(slot = 'right hand', power_bonus = 2)
+	obj = Object(0, 0, '-', 'dagger', libtcod.sky,
+				 equipment = equipment_component)
+	inventory.append(obj)
+	equipment_component.equip()
+	obj.always_visible = True
 
 	# test welcome message
 	message('Welcome to Hideous Truths!', libtcod.purple)
@@ -808,7 +838,8 @@ def place_objects(room):
 	item_chances['lightning'] = from_dungeon_level([[25, 4]])
 	item_chances['fireball'] = from_dungeon_level([[25, 6]])
 	item_chances['confuse'] = from_dungeon_level([[10, 2]])
-	item_chances['sword'] = 25
+	item_chances['sword'] = from_dungeon_level([[5, 4]])
+	item_chances['shield'] = from_dungeon_level([[15, 8]])
 
 	
 	# choose random number of monsters
@@ -880,8 +911,15 @@ def place_objects(room):
 							  item = item_component, always_visible = True)
 			elif choice == 'sword':
 				# create a sword
-				equipment_component = Equipment(slot = 'right hand')
+				equipment_component = Equipment(slot = 'right hand', 
+												power_bonus = 2)
 				item = Object(x, y, '/', 'sword', libtcod.sky,
+							  equipment = equipment_component)
+			elif choice == 'shield':
+				# create a shield
+				equipment_component = Equipment(slot = 'left hand',
+												defense_bonus = 1)
+				item = Object(x, y, '[', 'shield', libtcod.darker_orange,
 							  equipment = equipment_component)
 			else:
 				# 15% chance of creating a confuse scroll
@@ -1231,11 +1269,11 @@ def check_level_up():
 				LEVEL_SCREEN_WIDTH)
 
 		if choice == 0:
-			player.fighter.max_hp += 20
+			player.fighter.base_max_hp += 20
 		elif choice == 1:
-			player.fighter.power += 1
+			player.fighter.base_power += 1
 		elif choice == 2:
-			player.fighter.defense += 1
+			player.fighter.base_defense += 1
 
 		# restore HP
 		player.fighter.hp = player.fighter.max_hp
@@ -1284,6 +1322,19 @@ def get_equipped_in_slot(slot):
 			obj.equipment.is_equipped):
 			return obj.equipment
 	return None
+
+
+
+def get_all_equipped(obj):
+	# return a list of equipped items
+	if obj == player:
+		equipped_list = []
+		for item in inventory:
+			if item.equipment and item.equipment.is_equipped:
+				equipped_list.append(item.equipment)
+		return equipped_list
+	else:
+		return []
 
 
 
