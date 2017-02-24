@@ -5,13 +5,16 @@ import shelve
 
 # Last change: Reworked random monster/item selection
 
-# TODO: make '.' represent floors, '#' represent walls (play around with this)
+# TODO: make '.' represent floors, '#' represent walls 
+#			(play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       figure out background/floor/wall colors
 #       modify FOV to support light sources other than the player
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
-#       organize into 'gameloop.py', 'functions.py', 'classes.py', etc. files
-#       fix ai pathfinding to not get stuck on corners and to move around blocking objects
+#       organize into 'gameloop.py', 'functions.py', 'classes.py', etc.
+#			files
+#       fix ai pathfinding to not get stuck on corners and to move around 
+#			blocking objects
 #       implement fleeing monsters (check out Dijkstra maps)
 #       change messages to refer to 'you' instead of 'player'
 #       add turn counter
@@ -52,8 +55,6 @@ MAP_HEIGHT = 43
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
-MAX_ROOM_MONSTERS = 3
-MAX_ROOM_ITEMS = 2
 
 # parameters for FOV
 FOV_ALGO = 0 # default FOV algorithm
@@ -728,8 +729,28 @@ def create_v_tunnel(y1, y2, x):
 
 
 def place_objects(room):
+	# maximum number of monster per room
+	max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
+
+	# chance of each monster
+	monster_chances = {}
+	monster_chances['orc'] = 80 # orc always shows up, min 80% chance
+	monster_chances['troll'] = from_dungeon_level([[15, 3], [30, 5],
+												   [60, 7]])
+	
+	# maximum number of items per room
+	max_items = from_dungeon_level([[1, 1], [2, 4]])
+
+	# chance of each item
+	item_chances = {}
+	item_chances['heal'] = 35 # healing potion always shows up, min 35%
+	item_chances['lightning'] = from_dungeon_level([[25, 4]])
+	item_chances['fireball'] = from_dungeon_level([[25, 6]])
+	item_chances['confuse'] = from_dungeon_level([[10, 2]])
+
+	
 	# choose random number of monsters
-	num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+	num_monsters = libtcod.random_get_int(0, 0, max_monsters)
 
 	for i in range(num_monsters):
 		# choose random spot for each monster
@@ -741,21 +762,34 @@ def place_objects(room):
 			choice = random_choice(monster_chances)
 			if choice == 'orc':
 				# 80% chance of creating an orc
-				fighter_component = Fighter(hp = 10, defense = 0, power = 3, xp = 35, death_function = monster_death)
+				fighter_component = Fighter(hp = 10,
+											defense = 0,
+											power = 3,
+											xp = 35,
+											death_function = monster_death)
 				ai_component = BasicMonster()
-				monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green, 
-					blocks = True, fighter = fighter_component, ai = ai_component)
+				monster = Object(x, y, 'o', 'orc',
+								 libtcod.desaturated_green, 
+							     blocks = True,
+								 fighter = fighter_component,
+								 ai = ai_component)
 			else:
 				# 20% chance of creating a troll
-				fighter_component = Fighter(hp = 16, defense = 1, power = 4, xp = 100, death_function = monster_death)
+				fighter_component = Fighter(hp = 16,
+											defense = 1,
+											power = 4,
+											xp = 100,
+											death_function = monster_death)
 				ai_component = BasicMonster()
 				monster = Object(x, y, 'T', 'troll', libtcod.darker_green, 
-					blocks = True, fighter = fighter_component, ai = ai_component)
+							     blocks = True,
+								 fighter = fighter_component,
+								 ai = ai_component)
 
 			objects.append(monster)
 
 	# choose random number of items
-	num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+	num_items = libtcod.random_get_int(0, 0, max_items)
 
 	for i in range(num_items):
 		# choose random spot for this item
@@ -773,17 +807,20 @@ def place_objects(room):
 			elif choice == 'lightning':
 				# 10% chance of creating a lightning bolt scroll
 				item_component = Item(use_function = cast_lightning)
-				item = Object(x, y, '?', 'scroll of lightning', libtcod.light_yellow, 
+				item = Object(x, y, '?', 'scroll of lightning',
+							  libtcod.light_yellow, 
 							  item = item_component, always_visible = True)
 			elif choice == 'fireball':
 				# 10% chance of creating a fireball scroll
 				item_component = Item(use_function = cast_fireball)
-				item = Object(x, y, '?', 'scroll of fireball', libtcod.light_yellow, 
+				item = Object(x, y, '?', 'scroll of fireball',
+							  libtcod.light_yellow, 
 							  item = item_component, always_visible = True)
 			else:
 				# 15% chance of creating a confuse scroll
 				item_component = Item(use_function = cast_confuse)
-				item = Object(x, y, '?', 'scroll of confusion', libtcod.light_yellow, 
+				item = Object(x, y, '?', 'scroll of confusion',
+							  libtcod.light_yellow, 
 							  item = item_component, always_visible = True)
 			
 			objects.append(item)
@@ -1154,6 +1191,16 @@ def random_choice(chances_dict):
 	strings = chances_dict.keys()
 
 	return strings[random_choice_index(chances)]
+
+
+
+def from_dungeon_level(table):
+	# returns a value that depends on level. the table specifies what value
+	#  occurs after each level, default is 0.
+	for (value, level) in reversed(table):
+		if dungeon_level >= level:
+			return value
+	return 0
 
 
 
