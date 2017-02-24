@@ -5,7 +5,7 @@ import shelve
 
 # Last change: Reworked random monster/item selection
 
-# TODO: make '.' represent floors, '#' represent walls 
+# TODO: fix unseen monsters appearing on map
 #			(play around with this)
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       figure out background/floor/wall colors
@@ -77,10 +77,10 @@ LEVEL_UP_BASE = 200
 LEVEL_UP_FACTOR = 150
 
 # colors for map tiles. later these will be based on current area
-color_dark_wall = libtcod.Color(0, 0, 100)
-color_light_wall = libtcod.Color(130, 110, 50)
-color_dark_ground = libtcod.Color(50, 50, 150)
-color_light_ground = libtcod.Color(200, 180, 50)
+color_dark_wall = libtcod.darker_grey
+color_light_wall = libtcod.light_grey
+color_dark_floor = libtcod.grey
+color_light_floor = libtcod.white
 
 
 
@@ -139,7 +139,12 @@ class Object:
 
 	def clear(self):
 		# erase the character that represents this object
-		libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
+		if libtcod.map_is_in_fov(fov_map, self.x, self.y):
+			libtcod.console_put_char_ex(con, self.x, self.y, '.',
+				color_light_floor, libtcod.black)
+		else:
+			libtcod.console_put_char_ex(con, self.x, self.y, '.',
+				color_dark_floor, libtcod.black)
 
 	def move_towards(self, target_x, target_y):
 		# draw vector from this object to the target
@@ -739,7 +744,8 @@ def render_all():
 	if fov_recompute:
 		# recompute FOV if needed (e.g. the player moved)
 		fov_recompute = False
-		libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
+		libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS,
+								FOV_LIGHT_WALLS, FOV_ALGO)
 
 	for y in range(MAP_HEIGHT):
 		for x in range(MAP_WIDTH):
@@ -747,23 +753,32 @@ def render_all():
 			visible = libtcod.map_is_in_fov(fov_map, x, y)
 			if not visible:
 				if map[x][y].explored:
-					# if tile is outside of player's FOV and has been explored
+					# if tile is outside of player's FOV and has been
+					#  explored
 					if wall:
-						libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
+						libtcod.console_put_char_ex(con, x, y, '#',
+							color_dark_wall, color_dark_wall)
 					else:
-						libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET)
+						libtcod.console_put_char_ex(con, x, y, '.',
+							color_dark_floor, libtcod.black)
+				else:
+					libtcod.console_put_char_ex(con, x, y, ' ',
+						libtcod.black, libtcod.black)
 			else:
 				# if tile is visible
 				if wall:
-					libtcod.console_set_char_background(con, x, y, color_light_wall, libtcod.BKGND_SET)
+					libtcod.console_put_char_ex(con, x, y, '#',
+						color_light_wall, color_light_wall)
 				else:
-					libtcod.console_set_char_background(con, x, y, color_light_ground, libtcod.BKGND_SET)
+					libtcod.console_put_char_ex(con, x, y, '.', 
+						color_light_floor, libtcod.black)
 				map[x][y].explored = True
 
 	# draw all objects in the list, except player
 	for object in objects:
 		if object != player:
 			object.draw()
+
 	# then draw player so it shows up over corpses (and other items)
 	player.draw()
 
