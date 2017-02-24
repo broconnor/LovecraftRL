@@ -41,3 +41,7 @@ Thumbs.db
 *.pyo
 *.pyc
 *~
+
+# Other #
+#########
+savegame

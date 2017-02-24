@@ -62,12 +62,12 @@ FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
 # parameters for items
-HEAL_AMOUNT = 4
-LIGHTNING_DAMAGE = 20
+HEAL_AMOUNT = 40
+LIGHTNING_DAMAGE = 40
 LIGHTNING_RANGE = 5
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 8
-FIREBALL_DAMAGE = 12
+FIREBALL_DAMAGE = 25
 FIREBALL_RADIUS = 3
 
 # experience and level-ups
@@ -308,12 +308,16 @@ def new_game():
 	global player, inventory, game_msgs, game_state, dungeon_level
 
 	# create object representing the player
-	fighter_component = Fighter(hp = 30, defense = 2, power = 5, xp = 0, death_function = player_death)
-	player = Object(0, 0, '@', 'player', libtcod.white, blocks = True, fighter = fighter_component)
+	fighter_component = Fighter(hp = 100 , defense = 1, power = 4,
+			  				    xp = 0,
+				   			    death_function = player_death)
+	player = Object(0, 0, '@', 'player', libtcod.white, blocks = True,
+					fighter = fighter_component)
 
 	player.level = 1
 
-	# generate the map (but don't draw to screen yet) and initialize fov
+	# generate the map (but don't draw to screen yet) and
+	#  initialize fov
 	dungeon_level = 1
 	make_map()
 	initialize_fov()
@@ -762,9 +766,9 @@ def place_objects(room):
 			choice = random_choice(monster_chances)
 			if choice == 'orc':
 				# 80% chance of creating an orc
-				fighter_component = Fighter(hp = 10,
+				fighter_component = Fighter(hp = 20,
 											defense = 0,
-											power = 3,
+											power = 4,
 											xp = 35,
 											death_function = monster_death)
 				ai_component = BasicMonster()
@@ -775,9 +779,9 @@ def place_objects(room):
 								 ai = ai_component)
 			else:
 				# 20% chance of creating a troll
-				fighter_component = Fighter(hp = 16,
-											defense = 1,
-											power = 4,
+				fighter_component = Fighter(hp = 30,
+											defense = 2,
+											power = 8,
 											xp = 100,
 											death_function = monster_death)
 				ai_component = BasicMonster()
