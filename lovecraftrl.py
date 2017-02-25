@@ -13,8 +13,6 @@ import shelve
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
 #       organize into 'gameloop.py', 'functions.py', 'classes.py', etc.
 #           files
-#       fix ai pathfinding to not get stuck on corners and to move around 
-#           blocking objects
 #       implement fleeing monsters (check out Dijkstra maps)
 #       change messages to refer to 'you' instead of 'player'
 #       add turn counter
@@ -27,6 +25,7 @@ import shelve
 #       figure out how to get '>' and '<' keys working for stairs
 #       rework item randomization
 #       adjust messages to have better grammar
+#       stop turn from being used if player moves in to wall
 
 
 
@@ -627,52 +626,44 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('k'))):
             # move up
             player_move_or_attack(0, -1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_DOWN or
             key.vk == libtcod.KEY_KP2 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('j'))):
             # move down
             player_move_or_attack(0, 1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_LEFT or
             key.vk == libtcod.KEY_KP4 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('h'))):
             # move left
             player_move_or_attack(-1, 0)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_RIGHT or
             key.vk == libtcod.KEY_KP6 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('l'))):
             # move right
             player_move_or_attack(1, 0)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_KP7 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('y'))):
             # move up-left
             player_move_or_attack(-1, -1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_KP9 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('u'))):
             # move up-right
             player_move_or_attack(1, -1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_KP1 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('b'))):
             # move down-left
             player_move_or_attack(-1, 1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('n'))):
             # move down-right
             player_move_or_attack(1, 1)
-            fov_recompute = True
 
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('.'))):
