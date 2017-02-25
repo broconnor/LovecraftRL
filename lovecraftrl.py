@@ -700,7 +700,7 @@ def handle_keys():
                     if (object.x == player.x and object.y == player.y and
                         object.item):
                         object.item.pick_up()
-                        break
+                        return
 
             if key_char == 'i':
                 # show the inventory and select an item to use
@@ -708,6 +708,7 @@ def handle_keys():
                     'to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
+                    return
 
             if key_char == 'd':
                 # show the inventory and select an item to drop
@@ -715,6 +716,7 @@ def handle_keys():
                     'to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.drop()
+                    return
 
             if key_char == 'c':
                 # show stats
