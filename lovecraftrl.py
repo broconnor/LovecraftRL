@@ -81,6 +81,10 @@ color_light_wall = libtcod.light_grey
 color_dark_floor = libtcod.grey
 color_light_floor = libtcod.white
 
+# player move and attack delays
+PLAYER_MOVE_DELAY = 1
+PLAYER_ATTACK_DELAY = 1
+
 
 
 #########################
@@ -625,45 +629,61 @@ def handle_keys():
             key.vk == libtcod.KEY_KP8 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('k'))):
             # move up
-            player_move_or_attack(0, -1)
+            moved = player_move_or_attack(0, -1)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_DOWN or
             key.vk == libtcod.KEY_KP2 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('j'))):
             # move down
-            player_move_or_attack(0, 1)
-
+            moved = player_move_or_attack(0, 1)
+            if not moved:
+                return 'didnt-take-turn'
+           
         elif (key.vk == libtcod.KEY_LEFT or
             key.vk == libtcod.KEY_KP4 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('h'))):
             # move left
-            player_move_or_attack(-1, 0)
+            moved = player_move_or_attack(-1, 0)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_RIGHT or
             key.vk == libtcod.KEY_KP6 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('l'))):
             # move right
-            player_move_or_attack(1, 0)
+            moved = player_move_or_attack(1, 0)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_KP7 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('y'))):
             # move up-left
-            player_move_or_attack(-1, -1)
+            moved = player_move_or_attack(-1, -1)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_KP9 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('u'))):
             # move up-right
-            player_move_or_attack(1, -1)
+            moved = player_move_or_attack(1, -1)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_KP1 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('b'))):
             # move down-left
-            player_move_or_attack(-1, 1)
+            moved = player_move_or_attack(-1, 1)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('n'))):
             # move down-right
-            player_move_or_attack(1, 1)
+            moved = player_move_or_attack(1, 1)
+            if not moved:
+                return 'didnt-take-turn'
 
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('.'))):
@@ -1034,9 +1054,13 @@ def player_move_or_attack(dx, dy):
     # attack if target found, otherwise move
     if target is not None:
         player.fighter.attack(target)
+        return PLAYER_ATTACK_DELAY
+    elif map[x][y].blocked:
+        return 0
     else:
         player.move(dx, dy)
         fov_recompute = True
+        return PLAYER_MOVE_DELAY
 
 
 
