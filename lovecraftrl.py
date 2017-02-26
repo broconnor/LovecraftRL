@@ -703,13 +703,23 @@ def handle_keys():
             key_char = chr(key.c)
 
             if key_char == ',':
+                items = []
                 # pick up an item
                 for object in objects:
                     if (object.x == player.x and object.y == player.y and
                         object.item):
-                        object.item.pick_up()
-                        turn_counter += 1
-                        return
+                        items.append(object)
+                if len(items) == 1:
+                    items[0].item.pick_up()
+                    turn_counter += 1
+                    return
+                elif len(items) > 1:
+                    choice = menu('Select an item to pick up.\n',
+                                  [item.name for item in items],
+                                  INVENTORY_WIDTH)
+                    items[choice].item.pick_up()
+                    turn_counter += 1
+                    return
 
             if key_char == 'i':
                 # show the inventory and select an item to use
