@@ -14,7 +14,6 @@ import shelve
 #       implement fleeing monsters (check out Dijkstra maps)
 #       change messages to refer to 'you' instead of 'player'
 #       rework item use so enemies can use them as well
-#       add menu for choosing which item to pick up if many are on one tile
 #       rework items to be theme-appropriate
 #       add mouse support to menus (low priority)
 #       organize inventory by item type
@@ -442,6 +441,7 @@ class Equipment:
 #########################
 def new_game():
     global player, inventory, game_msgs, game_state, dungeon_level, turn_counter
+    global floors
 
     # create object representing the player
     fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
@@ -460,6 +460,7 @@ def new_game():
 
     game_state = 'playing'
     inventory = []
+    floors = []
 
     # create list of game message and their colors
     game_msgs = []
@@ -581,31 +582,33 @@ def save_game():
     save['objects'] = objects
     # this avoids the problem mentioned above
     save['player_index'] = objects.index(player)
-    save['stairs_index'] = objects.index(stairs)
+    save['downstairs_index'] = objects.index(downstairs)
     save['inventory'] = inventory
     save['game_msgs'] = game_msgs
     save['game_state'] = game_state
     save['dungeon_level'] = dungeon_level
     save['turn_counter'] = turn_counter
+    save['floors'] = floors
     save.close()
 
 
 
 def load_game():
     # open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state, stairs, \
-           dungeon_level, turn_counter
+    global map, objects, player, inventory, game_msgs, game_state, downstairs, \
+           dungeon_level, turn_counter, floors
 
     save = shelve.open('savegame', 'r')
     map = save['map']
     objects = save['objects']
     player = objects[save['player_index']]
-    stairs = objects[save['stairs_index']]
+    downstairs = objects[save['downstairs_index']]
     inventory = save['inventory']
     game_msgs = save['game_msgs']
     game_state = save['game_state']
     dungeon_level = save['dungeon_level']
     turn_counter = save['turn_counter']
+    floors = save['floors']
     save.close()
 
     initialize_fov()
@@ -752,16 +755,19 @@ def handle_keys():
 
             if key_char == '/':
                 # go down stairs, if player is on them
-                if stairs.x == player.x and stairs.y == player.y:
+                if downstairs.x == player.x and downstairs.y == player.y:
                     turn_counter += 1
                     next_level()
+                elif upstairs.x == player.x and upstairs.y == player.y:
+                    turn_counter += 1
+                    prev_level()
 
             return 'didnt-take-turn'
 
 
 
 def make_map():
-    global map, objects, stairs
+    global map, objects, downstairs, upstairs
 
     # create list of objects with just the player
     objects = [player]
@@ -799,6 +805,11 @@ def make_map():
                 # start the player in the center of the first room
                 player.x = new_x
                 player.y = new_y
+                if dungeon_level > 1:
+                    upstairs = Object(new_x, new_y, '<', 'upstairs',
+                                      libtcod.white, always_visible = True)
+                    objects.append(upstairs)
+                    upstairs.send_to_back()
             else:
                 # after the first room, connect to the previous room by tunnel
                 # get center of previous room
@@ -819,20 +830,72 @@ def make_map():
             rooms.append(new_room)
             num_rooms += 1
 
-    # create stairs at the center of the last room
-    stairs = Object(new_x, new_y, '>', 'stairs', libtcod.white,
+    # create downstairs at the center of the last room
+    downstairs = Object(new_x, new_y, '>', 'downstairs', libtcod.white,
                     always_visible = True)
-    objects.append(stairs)
-    stairs.send_to_back()
+    objects.append(downstairs)
+    downstairs.send_to_back()
 
+
+
+def save_floor(floor_num):
+    global floors
+    # store a floor in an array so it can be returned to later
+    if floor_num > 1:
+        floor = {'map': map, 'objects': objects, 'downstairs': downstairs,
+                 'upstairs': upstairs}
+    else:
+        floor = {'map': map, 'objects': objects, 'downstairs': downstairs}
+    
+    if floor_num > len(floors):
+        floors.append(floor)
+    else:
+        floors[floor_num - 1] = floor
+
+
+
+def load_floor(floor_num):
+    global floors, map, objects, downstairs, upstairs
+    # load a previously seen floor
+
+    floor = floors[floor_num - 1]
+    map = floor['map']
+    objects = floor['objects']
+
+    downstairs = floor['downstairs']
+    if floor_num > 1:
+        upstairs = floor['upstairs']            
+    
 
 
 def next_level():
     global dungeon_level
     # advance to the next level
-    message('You descend deeper into the heart of the dungeon...', libtcod.red)
+    save_floor(dungeon_level)
     dungeon_level += 1
-    make_map()
+    if dungeon_level > len(floors):
+        make_map()
+        message('You descend deeper into the heart of the dungeon...',
+                libtcod.red)
+    else:
+        load_floor(dungeon_level)
+        player.x = upstairs.x
+        player.y = upstairs.y
+
+    initialize_fov()
+
+
+
+def prev_level():
+    global dungeon_level
+    # return to previous level
+    save_floor(dungeon_level)
+    dungeon_level -= 1
+    
+    load_floor(dungeon_level)
+    player.x = downstairs.x
+    player.y = downstairs.y
+
     initialize_fov()
 
 
