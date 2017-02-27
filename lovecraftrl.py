@@ -881,6 +881,7 @@ def next_level():
         load_floor(dungeon_level)
         player.x = upstairs.x
         player.y = upstairs.y
+        message('You walk down a flight of stairs.', libtcod.yellow)
 
     initialize_fov()
 
@@ -895,6 +896,7 @@ def prev_level():
     load_floor(dungeon_level)
     player.x = downstairs.x
     player.y = downstairs.y
+    message('You walk up a flight of stairs.', libtcod.yellow)
 
     initialize_fov()
 
