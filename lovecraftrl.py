@@ -583,6 +583,7 @@ def save_game():
     # this avoids the problem mentioned above
     save['player_index'] = objects.index(player)
     save['downstairs_index'] = objects.index(downstairs)
+    save['upstairs_index'] = objects.index(upstairs)
     save['inventory'] = inventory
     save['game_msgs'] = game_msgs
     save['game_state'] = game_state
@@ -595,14 +596,16 @@ def save_game():
 
 def load_game():
     # open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state, downstairs, \
-           dungeon_level, turn_counter, floors
+    global map, objects, player, inventory, game_msgs, game_state,\
+           downstairs, upstairs, dungeon_level, turn_counter, floors 
+          
 
     save = shelve.open('savegame', 'r')
     map = save['map']
     objects = save['objects']
     player = objects[save['player_index']]
     downstairs = objects[save['downstairs_index']]
+    upstairs = objects[save['upstairs_index']]
     inventory = save['inventory']
     game_msgs = save['game_msgs']
     game_state = save['game_state']
