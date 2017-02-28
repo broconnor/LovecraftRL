@@ -5,7 +5,7 @@ import shelve
 
 # Last change: Reworked random monster/item selection
 
-# TODO: 
+# TODO: write new messages for when monsters use, drop, etc. items
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       modify FOV to support light sources other than the player
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
@@ -334,7 +334,13 @@ class BasicMonster:
             # line of sight is reciprocal. so take turn if player can see
             #   monster
             if monster.distance_to(player) >= 2:
-                # move towards player if not adjacent
+                # pick up an item if standing on one
+                for obj in objects:
+                    if (obj.x == self.owner.x and obj.y == self.owner.y and
+                        obj.item):
+                        monster.inventory.add(obj)
+                        return
+                # otherwise, move towards player if not adjacent
                 monster.move_astar(player)
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
@@ -393,7 +399,7 @@ class Item:
         else:
             if self.use_function() != 'cancelled':
                 # destroy after use, unless cancelled
-                inventory.remove(self.owner)
+                self.carrier.inventory.items.remove(self.owner)
 
     def drop(self):
         # add to the map and remove from the player's inventory
@@ -447,7 +453,7 @@ class Equipment:
 
 class Inventory:
     # represents an Object's inventory
-    def __init__(self, items = []):
+    def __init__(self, items):
         self.items = items
 
     def add(self, obj):
@@ -471,6 +477,7 @@ class Inventory:
     def drop(self, obj):
         # remove an object from the inventory and add it to the map
         objects.append(obj)
+        obj.send_to_back()
         self.items.remove(obj)
         obj.item.carrier = None
         obj.x = self.owner.x
@@ -490,14 +497,13 @@ class Inventory:
 ####### FUNCTIONS #######
 #########################
 def new_game():
-    global player, inventory, game_msgs, game_state, dungeon_level, turn_counter
-    global floors
+    global player, floors, game_msgs, game_state, dungeon_level, turn_counter
 
     # create object representing the player
     fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
                                 xp = 0,
                                 death_function = player_death)
-    inventory_component = Inventory()
+    inventory_component = Inventory(items = [])
     player = Object(0, 0, '@', 'player', libtcod.white, blocks = True,
                     fighter = fighter_component,
                     inventory = inventory_component)
@@ -511,7 +517,6 @@ def new_game():
     initialize_fov()
 
     game_state = 'playing'
-    inventory = []
     floors = []
 
     # create list of game message and their colors
@@ -637,7 +642,6 @@ def save_game():
     save['downstairs_index'] = objects.index(downstairs)
     if dungeon_level > 1:
         save['upstairs_index'] = objects.index(upstairs)
-    save['inventory'] = inventory
     save['game_msgs'] = game_msgs
     save['game_state'] = game_state
     save['dungeon_level'] = dungeon_level
@@ -649,7 +653,7 @@ def save_game():
 
 def load_game():
     # open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state,\
+    global map, objects, player, game_msgs, game_state,\
            downstairs, upstairs, dungeon_level, turn_counter, floors 
           
 
@@ -658,7 +662,6 @@ def load_game():
     objects = save['objects']
     player = objects[save['player_index']]
     downstairs = objects[save['downstairs_index']]
-    inventory = save['inventory']
     game_msgs = save['game_msgs']
     game_state = save['game_state']
     dungeon_level = save['dungeon_level']
@@ -777,7 +780,7 @@ def handle_keys():
                     choice = menu('Select an item to pick up.\n',
                                   [item.name for item in items],
                                   INVENTORY_WIDTH)
-                    player.inventory.add(choice)
+                    player.inventory.add(items[choice])
                     turn_counter += 1
                     return
 
@@ -1103,7 +1106,8 @@ def place_objects(room):
                                  libtcod.desaturated_green, 
                                  blocks = True,
                                  fighter = fighter_component,
-                                 ai = ai_component)
+                                 ai = ai_component,
+                                 inventory = Inventory(items = []))
             else:
                 # 20% chance of creating a troll
                 fighter_component = Fighter(hp = 30,
@@ -1115,7 +1119,8 @@ def place_objects(room):
                 monster = Object(x, y, 'T', 'troll', libtcod.darker_green, 
                                  blocks = True,
                                  fighter = fighter_component,
-                                 ai = ai_component)
+                                 ai = ai_component,
+                                 inventory = Inventory(items = []))
 
             objects.append(monster)
 
@@ -1229,6 +1234,8 @@ def monster_death(monster):
     message('The ' + monster.name + ' dies! You gain ' + str(monster.fighter.xp)
             + ' experience points.', libtcod.orange)
         
+    for obj in monster.inventory.items:
+        monster.inventory.drop(obj)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
@@ -1580,7 +1587,7 @@ def from_dungeon_level(table):
 
 def get_equipped_in_slot(slot):
     # returns the equipment in a slot, or None if it's empty
-    for obj in inventory:
+    for obj in player.inventory.items:
         if (obj.equipment and obj.equipment.slot == slot and
             obj.equipment.is_equipped):
             return obj.equipment
@@ -1592,7 +1599,7 @@ def get_all_equipped(obj):
     # return a list of equipped items
     if obj == player:
         equipped_list = []
-        for item in inventory:
+        for item in player.inventory.items:
             if item.equipment and item.equipment.is_equipped:
                 equipped_list.append(item.equipment)
         return equipped_list
