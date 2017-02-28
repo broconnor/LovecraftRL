@@ -93,7 +93,7 @@ class Object:
     # always represented by character on screen
     def __init__(self, x, y, char, name, color, blocks = False, 
                 always_visible = False, fighter = None, ai = None, 
-                item = None, equipment = None):
+                inventory = None, item = None, equipment = None):
         self.name = name
         self.blocks = blocks
         self.x = x
@@ -111,6 +111,11 @@ class Object:
         if self.ai:
             # Let the AI component know who owns it
             self.ai.owner = self
+
+        self.inventory = inventory
+        if self.inventory:
+            # Let the Inventory component know who owns it
+            self.inventory.owner = self
         
         self.item = item
         if self.item:
@@ -439,6 +444,45 @@ class Equipment:
 
 
 
+class Inventory:
+    # represents an Object's inventory
+    def __init__(self, items):
+        self.items = items
+
+    def add(self, obj):
+        # add an item to the inventory
+        if len(self.items) >= 26:
+            message('Your inventory is full, cannot pick up ' +
+                    obj.name + '.', libtcod.red)
+        else:
+            self.items.append(obj)
+            objects.remove(obj)
+            if self.owner == player:
+                message('You pick up a ' + obj.name + '.', libtcod.green)
+            else:
+                message('The ' + self.owner.name + ' picks up a ' + obj.name +
+                        '.', libtcod.yellow)
+            equipment = obj.equipment
+            if equipment and get_equipped_in_slot(equipment.slot) is None:
+                equipment.equip()
+
+    def drop(self, obj):
+        # remove an object from the inventory and add it to the map
+        objects.append(obj)
+        self.items.remove(obj)
+        obj.x = self.owner.x
+        obj.y = self.owner.y
+        # if it's equipment, remove it
+        if obj.equipment:
+            obj.equipment.unequip()
+        if self.owner == player:
+            message('You drop a ' + obj.name + '.', libtcod.yellow)
+        else:
+            message('The ' + self.owner.name + ' drop a ' + obj.name + '.',
+                    libtcod.green)
+
+
+
 #########################
 ####### FUNCTIONS #######
 #########################
@@ -450,8 +494,10 @@ def new_game():
     fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
                                 xp = 0,
                                 death_function = player_death)
+    inventory_component = Inventory(items = [])
     player = Object(0, 0, '@', 'player', libtcod.white, blocks = True,
-                    fighter = fighter_component)
+                    fighter = fighter_component,
+                    inventory = inventory_component)
 
     player.level = 1
 
@@ -472,7 +518,7 @@ def new_game():
     equipment_component = Equipment(slot = 'right hand', power_bonus = 2)
     obj = Object(0, 0, '-', 'dagger', libtcod.sky,
                  equipment = equipment_component)
-    inventory.append(obj)
+    player.inventory.items.append(obj)
     equipment_component.equip()
     obj.always_visible = True
 
@@ -716,19 +762,19 @@ def handle_keys():
             if key_char == ',':
                 items = []
                 # pick up an item
-                for object in objects:
-                    if (object.x == player.x and object.y == player.y and
-                        object.item):
-                        items.append(object)
+                for obj in objects:
+                    if (obj.x == player.x and obj.y == player.y and
+                        obj.item):
+                        items.append(obj)
                 if len(items) == 1:
-                    items[0].item.pick_up()
+                    player.inventory.add(items[0])
                     turn_counter += 1
                     return
                 elif len(items) > 1:
                     choice = menu('Select an item to pick up.\n',
                                   [item.name for item in items],
                                   INVENTORY_WIDTH)
-                    items[choice].item.pick_up()
+                    player.inventory.add(choice)
                     turn_counter += 1
                     return
 
@@ -1327,6 +1373,7 @@ def menu(header, options, width):
 
 def inventory_menu(header):
     # show a menu with each inventory item as an option
+    inventory = player.inventory.items
     if len(inventory) == 0:
         options = ['Inventory is empty.']
     else:
