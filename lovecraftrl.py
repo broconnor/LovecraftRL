@@ -6,6 +6,7 @@ import shelve
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
+#       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       modify FOV to support light sources other than the player
 #       modify place_objects to support squads, fit theme, etc (EXP based?)
@@ -334,13 +335,7 @@ class BasicMonster:
             # line of sight is reciprocal. so take turn if player can see
             #   monster
             if monster.distance_to(player) >= 2:
-                # pick up an item if standing on one
-                for obj in objects:
-                    if (obj.x == self.owner.x and obj.y == self.owner.y and
-                        obj.item):
-                        monster.inventory.add(obj)
-                        return
-                # otherwise, move towards player if not adjacent
+                # move towards player if not adjacent
                 monster.move_astar(player)
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
