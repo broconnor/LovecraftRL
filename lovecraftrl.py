@@ -15,6 +15,7 @@ import shelve
 #       change messages to refer to 'you' instead of 'player'
 #       rework item use so enemies can use them as well
 #       rework items to be theme-appropriate
+#       rework equipping/unequipping process so monsters can equip items
 #       add mouse support to menus (low priority)
 #       organize inventory by item type
 #       add support for multiple saves
@@ -363,7 +364,7 @@ class ConfusedMonster:
 
 class Item:
     # an item that can be picked up and used
-    def __init__(self, use_function = None):
+    def __init__(self, carrier = None, use_function = None):
         self.use_function = use_function
 
     def pick_up(self):
@@ -446,7 +447,7 @@ class Equipment:
 
 class Inventory:
     # represents an Object's inventory
-    def __init__(self, items):
+    def __init__(self, items = []):
         self.items = items
 
     def add(self, obj):
@@ -456,6 +457,7 @@ class Inventory:
                     obj.name + '.', libtcod.red)
         else:
             self.items.append(obj)
+            obj.item.carrier = self.owner
             objects.remove(obj)
             if self.owner == player:
                 message('You pick up a ' + obj.name + '.', libtcod.green)
@@ -470,6 +472,7 @@ class Inventory:
         # remove an object from the inventory and add it to the map
         objects.append(obj)
         self.items.remove(obj)
+        obj.item.carrier = None
         obj.x = self.owner.x
         obj.y = self.owner.y
         # if it's equipment, remove it
@@ -494,7 +497,7 @@ def new_game():
     fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
                                 xp = 0,
                                 death_function = player_death)
-    inventory_component = Inventory(items = [])
+    inventory_component = Inventory()
     player = Object(0, 0, '@', 'player', libtcod.white, blocks = True,
                     fighter = fighter_component,
                     inventory = inventory_component)
@@ -792,7 +795,7 @@ def handle_keys():
                 chosen_item = inventory_menu('Press the key next to an item ' +
                     'to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
-                    chosen_item.drop()
+                    player.inventory.drop(chosen_item.owner)
                     turn_counter += 1
                     return
 
