@@ -21,6 +21,9 @@ import shelve
 #       figure out how to get '>' and '<' keys working for stairs
 #       rework item randomization
 #       adjust messages to have better grammar
+#       use BSP for dungeon generation (see Roguebasin)
+#       fix bug with saves not working on first floor due to no upstairs
+
 
 
 
@@ -583,7 +586,8 @@ def save_game():
     # this avoids the problem mentioned above
     save['player_index'] = objects.index(player)
     save['downstairs_index'] = objects.index(downstairs)
-    save['upstairs_index'] = objects.index(upstairs)
+    if dungeon_level > 1:
+        save['upstairs_index'] = objects.index(upstairs)
     save['inventory'] = inventory
     save['game_msgs'] = game_msgs
     save['game_state'] = game_state
@@ -605,11 +609,12 @@ def load_game():
     objects = save['objects']
     player = objects[save['player_index']]
     downstairs = objects[save['downstairs_index']]
-    upstairs = objects[save['upstairs_index']]
     inventory = save['inventory']
     game_msgs = save['game_msgs']
     game_state = save['game_state']
     dungeon_level = save['dungeon_level']
+    if dungeon_level > 1:
+        upstairs = objects[save['upstairs_index']]
     turn_counter = save['turn_counter']
     floors = save['floors']
     save.close()
