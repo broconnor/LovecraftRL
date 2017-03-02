@@ -7,7 +7,7 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
-#       fix bug where player sometimes spawns inside wall
+#       tweak BSP parameters
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       modify FOV to support light sources other than the player
@@ -86,8 +86,8 @@ PLAYER_MOVE_DELAY = 1
 PLAYER_ATTACK_DELAY = 1
 
 # binary space partitioning constants
-DEPTH = 4
-MIN_SIZE = 8
+DEPTH = 6
+MIN_SIZE = 5
 FULL_ROOMS = False
 
 
