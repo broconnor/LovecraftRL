@@ -7,6 +7,7 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
+#       fix bug where player sometimes spawns inside wall
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
 #       modify FOV to support light sources other than the player
@@ -24,9 +25,7 @@ import random
 #       figure out how to get '>' and '<' keys working for stairs
 #       rework item randomization
 #       adjust messages to have better grammar
-#       use BSP for dungeon generation (see Roguebasin)
 #       fix bug with saves not working on first floor due to no upstairs
-
 
 
 
@@ -87,8 +86,8 @@ PLAYER_MOVE_DELAY = 1
 PLAYER_ATTACK_DELAY = 1
 
 # binary space partitioning constants
-DEPTH = 6
-MIN_SIZE = 5
+DEPTH = 4
+MIN_SIZE = 8
 FULL_ROOMS = False
 
 
@@ -1632,25 +1631,31 @@ def make_bsp():
     # random room for the stairs
     downstairs_room = random.choice(bsp_rooms)
     bsp_rooms.remove(downstairs_room)
-    downstairs = Object(downstairs_room[0], downstairs_room[1], '>',
-                        'downstairs', libtcod.white, always_visible=True)
+    x = libtcod.random_get_int(0, downstairs_room[0] + 1,
+                               downstairs_room[0] + downstairs_room[2] - 1)
+    y = libtcod.random_get_int(0, downstairs_room[1] + 1,
+                               downstairs_room[1] + downstairs_room[3] - 1)
+    downstairs = Object(x,  y, '>', 'downstairs', libtcod.white,
+                        always_visible=True)
     objects.append(downstairs)
     downstairs.send_to_back()
 
     # random room for player start (and upstairs, if not on first floor)
     player_room = random.choice(bsp_rooms)
     bsp_rooms.remove(player_room)
-    player.x = player_room[0]
-    player.y = player_room[1]
+    player.x = libtcod.random_get_int(0, player_room[0] + 1,
+                                      player_room[0] + player_room[2] - 1)
+    player.y = libtcod.random_get_int(0, player_room[1] + 1,
+                                      player_room[1] + player_room[3] - 1)
     if dungeon_level > 1:
-        upstairs = Object(player_room[0], player_room[1], '<',
+        upstairs = Object(player.x, player.y, '<',
                           'upstairs', libtcod.white, always_visible=True)
         objects.append(upstairs)
         upstairs.send_to_back()
 
     # add monsters and items
     for room in bsp_rooms:
-        new_room = Rect(room[0], room[1], 2, 2)
+        new_room = Rect(room[0], room[1], room[2], room[3])
         place_objects(new_room)
 
     initialize_fov()
@@ -1690,7 +1695,8 @@ def traverse_node(node, dat):
                 map[x][y].blocked = False
                 map[x][y].block_sight = False
 
-        bsp_rooms.append(((minx + maxx) / 2, (miny + maxy) / 2))
+        #bsp_rooms.append(((minx + maxx) / 2, (miny + maxy) / 2))
+        bsp_rooms.append((node.x, node.y, node.w, node.h))
 
     # create corridors
     else:
