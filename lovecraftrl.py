@@ -7,7 +7,6 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
-#       fix bug with time counter constantly increasing
 #       fix new time system running very slowly
 #       tweak BSP parameters
 #       add random loot to monster inventories
@@ -601,7 +600,7 @@ def play_game():
                 save_game()
                 break
         else:
-            player.fighter.delay -= 10
+            player.fighter.delay -= 100
 
         # let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
@@ -610,9 +609,9 @@ def play_game():
                     if object.fighter.delay <= 0:
                         object.ai.take_turn()
                     else:
-                        object.fighter.delay -= 10
+                        object.fighter.delay -= 100
 
-        time += 10
+        time += 100
         turn_counter = time / 100
 
 
@@ -844,7 +843,8 @@ def handle_keys():
                 if downstairs.x == player.x and downstairs.y == player.y:
                     #turn_counter + 1
                     next_level()
-                elif upstairs.x == player.x and upstairs.y == player.y:
+                elif (dungeon_level > 1 and
+                      upstairs.x == player.x and upstairs.y == player.y):
                     #turn_counter + 1
                     prev_level()
 
