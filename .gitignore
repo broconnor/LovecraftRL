@@ -41,7 +41,9 @@ Thumbs.db
 *.pyo
 *.pyc
 *~
+*.swp
 
 # Other #
 #########
 savegame
+.gitignore

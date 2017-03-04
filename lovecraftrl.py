@@ -7,6 +7,8 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
+#       fix bug with time counter constantly increasing
+#       fix new time system running very slowly
 #       tweak BSP parameters
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -599,7 +601,7 @@ def play_game():
                 save_game()
                 break
         else:
-            player.fighter.delay -= 1
+            player.fighter.delay -= 10
 
         # let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
@@ -608,9 +610,9 @@ def play_game():
                     if object.fighter.delay <= 0:
                         object.ai.take_turn()
                     else:
-                        object.fighter.delay -= 1
+                        object.fighter.delay -= 10
 
-        time += 1
+        time += 10
         turn_counter = time / 100
 
 
@@ -701,6 +703,7 @@ def load_game():
 def handle_keys():
     global fov_recompute, key, turn_counter
 
+    key = libtcod.console_wait_for_keypress(True)
     # non-movement command keys
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: toggle fullscreen
