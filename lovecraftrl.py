@@ -82,8 +82,8 @@ color_dark_floor = libtcod.grey
 color_light_floor = libtcod.white
 
 # player move and attack delays
-PLAYER_MOVE_DELAY = 1
-PLAYER_ATTACK_DELAY = 1
+PLAYER_MOVE_TIME = 100
+PLAYER_ATTACK_TIME = 100
 
 # binary space partitioning constants
 DEPTH = 6
@@ -272,12 +272,16 @@ class Rect:
 
 class Fighter:
     # combat-related properties and methods (for monsters, players, NPCs, etc.)
-    def __init__(self, hp, defense, power, xp, death_function = None):
+    def __init__(self, hp, defense, power, xp, delay = 0, move_time = 100,
+                 attack_time = 100, death_function = None):
         self.base_max_hp = hp
         self.hp = hp
         self.base_defense = defense
         self.base_power = power
         self.xp = xp
+        self.delay = delay
+        self.move_time = move_time
+        self.attack_time = attack_time
         self.death_function = death_function
 
     def take_damage(self, damage):
@@ -342,8 +346,10 @@ class BasicMonster:
             if monster.distance_to(player) >= 2:
                 # move towards player if not adjacent
                 monster.move_astar(player)
+                monster.fighter.delay += monster.fighter.move_time
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
+                monster.fighter.delay += monster.fighter.attack_time
 
 
 
@@ -498,6 +504,7 @@ class Inventory:
 #########################
 def new_game():
     global player, floors, game_msgs, game_state, dungeon_level, turn_counter
+    global time
 
     # create object representing the player
     fighter_component = Fighter(hp = 100 , defense = 1, power = 2,
@@ -531,7 +538,9 @@ def new_game():
     obj.always_visible = True
 
     # start turn counter
-    turn_counter = 1
+    time = 100
+    turn_counter = time / 100
+
 
     # test welcome message
     message('Welcome to Hideous Truths!', libtcod.purple)
@@ -556,7 +565,7 @@ def initialize_fov():
 
 
 def play_game():
-    global key, mouse
+    global key, mouse, time, turn_counter
 
     player_action = None
 
@@ -569,7 +578,9 @@ def play_game():
         libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS |
                                     libtcod.EVENT_MOUSE,
                                     key, mouse)
-        render_all()
+    
+        # moved to within player turn with new time system
+        #render_all()
         
         # update on-screen console
         libtcod.console_flush()
@@ -581,16 +592,26 @@ def play_game():
             object.clear()
 
         # handle keys and exit game if needed
-        player_action = handle_keys()
-        if player_action == 'exit':
-            save_game()
-            break
+        if player.fighter.delay <= 0:
+            render_all()
+            player_action = handle_keys()
+            if player_action == 'exit':
+                save_game()
+                break
+        else:
+            player.fighter.delay -= 1
 
         # let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
             for object in objects:
-                if object.ai:
-                    object.ai.take_turn()
+                if object.ai and object.fighter:
+                    if object.fighter.delay <= 0:
+                        object.ai.take_turn()
+                    else:
+                        object.fighter.delay -= 1
+
+        time += 1
+        turn_counter = time / 100
 
 
 
@@ -645,6 +666,7 @@ def save_game():
     save['game_msgs'] = game_msgs
     save['game_state'] = game_state
     save['dungeon_level'] = dungeon_level
+    save['time'] = time
     save['turn_counter'] = turn_counter
     save['floors'] = floors
     save.close()
@@ -654,7 +676,7 @@ def save_game():
 def load_game():
     # open the previously saved shelve and load the game data
     global map, objects, player, game_msgs, game_state,\
-           downstairs, upstairs, dungeon_level, turn_counter, floors 
+           downstairs, upstairs, dungeon_level, turn_counter, floors, time
           
 
     save = shelve.open('savegame', 'r')
@@ -668,6 +690,7 @@ def load_game():
     if dungeon_level > 1:
         upstairs = objects[save['upstairs_index']]
     turn_counter = save['turn_counter']
+    time = save['time']
     floors = save['floors']
     save.close()
 
@@ -693,7 +716,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('k'))):
             # move up
             moved = player_move_or_attack(0, -1)
-            turn_counter += moved
+            #turn_counter += moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -702,7 +725,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('j'))):
             # move down
             moved = player_move_or_attack(0, 1)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
            
@@ -711,7 +734,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('h'))):
             # move left
             moved = player_move_or_attack(-1, 0)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -720,7 +743,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('l'))):
             # move right
             moved = player_move_or_attack(1, 0)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -728,7 +751,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('y'))):
             # move up-left
             moved = player_move_or_attack(-1, -1)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -736,7 +759,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('u'))):
             # move up-right
             moved = player_move_or_attack(1, -1)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -744,7 +767,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('b'))):
             # move down-left
             moved = player_move_or_attack(-1, 1)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -752,7 +775,7 @@ def handle_keys():
             (key.vk == libtcod.KEY_CHAR and key.c == ord('n'))):
             # move down-right
             moved = player_move_or_attack(1, 1)
-            turn_counter += moved
+            #turn_counter + moved
             if not moved:
                 return 'didnt-take-turn'
 
@@ -774,14 +797,14 @@ def handle_keys():
                         items.append(obj)
                 if len(items) == 1:
                     player.inventory.add(items[0])
-                    turn_counter += 1
+                    #turn_counter + 1
                     return
                 elif len(items) > 1:
                     choice = menu('Select an item to pick up.\n',
                                   [item.name for item in items],
                                   INVENTORY_WIDTH)
                     player.inventory.add(items[choice])
-                    turn_counter += 1
+                    #turn_counter + 1
                     return
 
             if key_char == 'i':
@@ -790,7 +813,7 @@ def handle_keys():
                     'to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
-                    turn_counter += 1
+                    #turn_counter + 1
                     return
 
             if key_char == 'd':
@@ -799,7 +822,7 @@ def handle_keys():
                     'to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
                     player.inventory.drop(chosen_item.owner)
-                    turn_counter += 1
+                    #turn_counter + 1
                     return
 
             if key_char == 'c':
@@ -816,10 +839,10 @@ def handle_keys():
             if key_char == '/':
                 # go down stairs, if player is on them
                 if downstairs.x == player.x and downstairs.y == player.y:
-                    turn_counter += 1
+                    #turn_counter + 1
                     next_level()
                 elif upstairs.x == player.x and upstairs.y == player.y:
-                    turn_counter += 1
+                    #turn_counter + 1
                     prev_level()
 
             return 'didnt-take-turn'
@@ -1207,13 +1230,15 @@ def player_move_or_attack(dx, dy):
     # attack if target found, otherwise move
     if target is not None:
         player.fighter.attack(target)
-        return PLAYER_ATTACK_DELAY
+        player.fighter.delay += player.fighter.attack_time
+        return PLAYER_ATTACK_TIME
     elif map[x][y].blocked:
         return 0
     else:
         player.move(dx, dy)
         fov_recompute = True
-        return PLAYER_MOVE_DELAY
+        player.fighter.delay += player.fighter.move_time
+        return PLAYER_MOVE_TIME
 
 
 
