@@ -7,6 +7,7 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
+#       fix bug with inputs being one turn behind
 #       fix new time system running very slowly
 #       tweak BSP parameters
 #       add random loot to monster inventories
@@ -36,7 +37,7 @@ import random
 # parameters for console window
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
-LIMIT_FPS = 20
+LIMIT_FPS = 500
 
 # parameters for GUI
 BAR_WIDTH = 20
@@ -85,6 +86,7 @@ color_light_floor = libtcod.white
 # player move and attack delays
 PLAYER_MOVE_TIME = 100
 PLAYER_ATTACK_TIME = 100
+TICK_TIME = 5 
 
 # binary space partitioning constants
 DEPTH = 6
@@ -600,7 +602,7 @@ def play_game():
                 save_game()
                 break
         else:
-            player.fighter.delay -= 100
+            player.fighter.delay -= TICK_TIME
 
         # let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
@@ -609,9 +611,9 @@ def play_game():
                     if object.fighter.delay <= 0:
                         object.ai.take_turn()
                     else:
-                        object.fighter.delay -= 100
+                        object.fighter.delay -= TICK_TIME
 
-        time += 100
+        time += TICK_TIME 
         turn_counter = time / 100
 
 
