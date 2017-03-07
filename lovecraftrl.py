@@ -86,6 +86,7 @@ color_light_floor = libtcod.white
 PLAYER_MOVE_TIME = 100
 PLAYER_ATTACK_TIME = 100
 TICK_TIME = 5 
+TURN_TIME = 100
 
 # binary space partitioning constants
 DEPTH = 6
@@ -785,7 +786,7 @@ def handle_keys():
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('.'))):
             # do nothing
-            player.fighter.delay += 100
+            player.fighter.delay += TURN_TIME
             pass
 
         else:
@@ -802,6 +803,7 @@ def handle_keys():
                 if len(items) == 1:
                     player.inventory.add(items[0])
                     #turn_counter + 1
+                    player.fighter.delay += TURN_TIME / 2
                     return
                 elif len(items) > 1:
                     choice = menu('Select an item to pick up.\n',
@@ -809,6 +811,7 @@ def handle_keys():
                                   INVENTORY_WIDTH)
                     player.inventory.add(items[choice])
                     #turn_counter + 1
+                    player.fighter.delay += TURN_TIME / 2
                     return
 
             if key_char == 'i':
@@ -817,6 +820,7 @@ def handle_keys():
                     'to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
+                    player.fighter.delay += TURN_TIME
                     #turn_counter + 1
                     return
 
@@ -825,7 +829,7 @@ def handle_keys():
                 chosen_item = inventory_menu('Press the key next to an item ' +
                     'to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
-                    player.inventory.drop(chosen_item.owner)
+                    player.inventory.drop(chosen_item.owner) / 2
                     #turn_counter + 1
                     return
 
@@ -844,11 +848,15 @@ def handle_keys():
                 # go down stairs, if player is on them
                 if downstairs.x == player.x and downstairs.y == player.y:
                     #turn_counter + 1
+                    player.fighter.delay += TURN_TIME
                     next_level()
+                    return
                 elif (dungeon_level > 1 and
                       upstairs.x == player.x and upstairs.y == player.y):
                     #turn_counter + 1
+                    player.fighter.delay += TURN_TIME
                     prev_level()
+                    return
 
             return 'didnt-take-turn'
 
@@ -1047,7 +1055,7 @@ def render_all():
     libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT,
         'Dungeon level: ' + str(dungeon_level))
     libtcod.console_print_ex(panel, 1, 4, libtcod.BKGND_NONE, libtcod.LEFT,
-        'Turn: ' + str(time))
+        'Turn: ' + str(turn_counter))
 
     # display names of objects under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
