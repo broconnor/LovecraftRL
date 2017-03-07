@@ -7,8 +7,7 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
-#       fix bug with inputs being one turn behind
-#       fix new time system running very slowly
+#       fix turn counter jumping 2 turns every 20 turns or so
 #       tweak BSP parameters
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -704,7 +703,7 @@ def load_game():
 def handle_keys():
     global fov_recompute, key, turn_counter
 
-    key = libtcod.console_wait_for_keypress(True)
+    #key = libtcod.console_wait_for_keypress(True)
     # non-movement command keys
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: toggle fullscreen
@@ -1048,7 +1047,7 @@ def render_all():
     libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT,
         'Dungeon level: ' + str(dungeon_level))
     libtcod.console_print_ex(panel, 1, 4, libtcod.BKGND_NONE, libtcod.LEFT,
-        'Turn: ' + str(turn_counter))
+        'Turn: ' + str(time))
 
     # display names of objects under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
@@ -1841,7 +1840,7 @@ libtcod.console_set_custom_font('terminal12x12_gs_ro.png',
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'LovecraftRL', False)
 
 # set FPS to 20
-libtcod.sys_set_fps(LIMIT_FPS)
+#libtcod.sys_set_fps(LIMIT_FPS)
 
 # create off-screen console to draw on
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
