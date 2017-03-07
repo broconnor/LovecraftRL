@@ -613,8 +613,8 @@ def play_game():
                     else:
                         object.fighter.delay -= TICK_TIME
 
-        time += TICK_TIME 
-        turn_counter = time / 100
+            time += TICK_TIME 
+            turn_counter = time / 100
 
 
 
@@ -786,6 +786,7 @@ def handle_keys():
         elif (key.vk == libtcod.KEY_KP3 or
             (key.vk == libtcod.KEY_CHAR and key.c == ord('.'))):
             # do nothing
+            player.fighter.delay += 100
             pass
 
         else:
