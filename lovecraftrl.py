@@ -598,6 +598,8 @@ def play_game():
         if player.fighter.delay <= 0:
             render_all()
             player_action = handle_keys()
+            if player_action != 'didnt-take-turn':
+                player.fighter.delay -= TICK_TIME
             if player_action == 'exit':
                 save_game()
                 break
@@ -1056,6 +1058,8 @@ def render_all():
         'Dungeon level: ' + str(dungeon_level))
     libtcod.console_print_ex(panel, 1, 4, libtcod.BKGND_NONE, libtcod.LEFT,
         'Turn: ' + str(turn_counter))
+    libtcod.console_print_ex(panel, 1, 5, libtcod.BKGND_NONE, libtcod.LEFT,
+        'Delay: ' + str(player.fighter.delay))
 
     # display names of objects under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
