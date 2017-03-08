@@ -7,7 +7,8 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
-#       fix turn counter jumping 2 turns every 20 turns or so
+#       fix bug where monsters take multiple turns in a row on first turn
+#           in fov
 #       tweak BSP parameters
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
