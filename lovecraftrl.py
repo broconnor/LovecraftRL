@@ -7,8 +7,7 @@ import random
 # Last change: Reworked random monster/item selection
 
 # TODO: write new messages for when monsters use, drop, etc. items
-#       fix bug where monsters take multiple turns in a row on first turn
-#           in fov
+#       fix turn counter jumping 2 turns every 20 turns or so
 #       tweak BSP parameters
 #       add random loot to monster inventories
 #       add more variation to types of rooms (check out Crawl's vaults)
@@ -356,7 +355,6 @@ class BasicMonster:
                 monster.fighter.delay += monster.fighter.attack_time
 
 
-
 class ConfusedMonster:
     # AI for a temporarily confused monster (reverts to previous AI after a
     #   while)
@@ -614,8 +612,7 @@ def play_game():
                 if object.ai and object.fighter:
                     if object.fighter.delay <= 0:
                         object.ai.take_turn()
-                        object.fighter.delay -= TICK_TIME
-                    else:
+                    if object.fighter.delay > 0:
                         object.fighter.delay -= TICK_TIME
 
             time += TICK_TIME 
