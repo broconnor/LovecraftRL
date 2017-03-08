@@ -369,6 +369,7 @@ class ConfusedMonster:
             #   num_turns
             self.owner.move(libtcod.random_get_int(0, -1, 1), 
                             libtcod.random_get_int(0, -1, 1))
+            self.owner.fighter.delay += self.owner.fighter.move_time
             self.num_turns -= 1
         else:
             # restore the previous AI and delete this one
@@ -612,6 +613,7 @@ def play_game():
                 if object.ai and object.fighter:
                     if object.fighter.delay <= 0:
                         object.ai.take_turn()
+                        object.fighter.delay -= TICK_TIME
                     else:
                         object.fighter.delay -= TICK_TIME
 
@@ -1058,8 +1060,6 @@ def render_all():
         'Dungeon level: ' + str(dungeon_level))
     libtcod.console_print_ex(panel, 1, 4, libtcod.BKGND_NONE, libtcod.LEFT,
         'Turn: ' + str(turn_counter))
-    libtcod.console_print_ex(panel, 1, 5, libtcod.BKGND_NONE, libtcod.LEFT,
-        'Delay: ' + str(player.fighter.delay))
 
     # display names of objects under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
